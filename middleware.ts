@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
         AND expires_at > NOW()
       LIMIT 1;
     `;
-    isAuthed = sessionResult.rowCount > 0;
+    isAuthed = (sessionResult?.rowCount ?? 0) > 0;
   }
 
   if (isProtected && !isAuthed) {
