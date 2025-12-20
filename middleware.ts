@@ -1,16 +1,28 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sql } from "@vercel/postgres";
 
 const PROTECTED_PATHS = ["/app/dashboard"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PATHS.some((path) =>
     pathname.startsWith(path)
   );
 
-  const userCookie = request.cookies.get("app_user");
-  const isAuthed = Boolean(userCookie);
+  const sessionCookie = request.cookies.get("app_session");
+  let isAuthed = false;
+
+  if (sessionCookie) {
+    const sessionResult = await sql`
+      SELECT token
+      FROM sessions
+      WHERE token = ${sessionCookie.value}
+        AND expires_at > NOW()
+      LIMIT 1;
+    `;
+    isAuthed = sessionResult.rowCount > 0;
+  }
 
   if (isProtected && !isAuthed) {
     const url = request.nextUrl.clone();
