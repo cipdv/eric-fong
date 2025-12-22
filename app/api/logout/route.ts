@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { sql } from "@vercel/postgres";
 
 export async function POST() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get("app_session")?.value;
 
   if (token) {

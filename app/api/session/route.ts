@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { sql } from "@vercel/postgres";
 
 export async function GET() {
-  const token = cookies().get("app_session")?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("app_session")?.value;
   if (!token) {
     return NextResponse.json({ loggedIn: false });
   }
