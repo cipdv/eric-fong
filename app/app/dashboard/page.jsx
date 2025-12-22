@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { sql } from "@vercel/postgres";
 
 export default async function DashboardPage() {
@@ -16,20 +17,23 @@ export default async function DashboardPage() {
   }
 
   const { rows } = await sql`
-    SELECT users.first_name
+    SELECT users.id, users.first_name
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token = ${sessionCookie.value}
       AND sessions.expires_at > NOW()
     LIMIT 1;
   `;
-  const firstName = rows[0]?.first_name ?? "friend";
+  const user = rows[0];
+  const firstName = user?.first_name ?? "friend";
+  const userId = user?.id;
 
   return (
-    <div className="pb-12">
+    <div className="pb-12 space-y-4 mt-8">
       <h1 className="text-3xl font-semibold text-neutral-900">
-        Hi {firstName}, you fucking pig slut
+        Hi {firstName}
       </h1>
+      <p className="text-base text-neutral-800">New painting orders</p>
     </div>
   );
 }
