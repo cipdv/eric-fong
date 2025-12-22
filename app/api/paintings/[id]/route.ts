@@ -24,7 +24,7 @@ async function getUserFromSession() {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await getUserFromSession();
@@ -32,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const paintingId = params.id;
+    const { id: paintingId } = await params;
     const body = await request.json();
     const { title, details, medium, size_original, price_original, prints, is_home_image } =
       body;
@@ -92,7 +92,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await getUserFromSession();
@@ -100,7 +100,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const paintingId = params.id;
+    const { id: paintingId } = await params;
 
     await sql`DELETE FROM prints WHERE painting_id = ${paintingId};`;
     await sql`DELETE FROM paintings WHERE id = ${paintingId};`;
