@@ -1,16 +1,15 @@
 import ContactForm from "@/app/components/ContactForm";
 
 type ContactPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     message?: string;
-  };
+  }>;
 };
 
-export default function ContactPage({ searchParams }: ContactPageProps) {
+export default async function ContactPage({ searchParams }: ContactPageProps) {
+  const resolved = searchParams ? await searchParams : undefined;
   const defaultMessage =
-    typeof searchParams?.message === "string"
-      ? searchParams.message
-      : undefined;
+    typeof resolved?.message === "string" ? resolved.message : undefined;
 
   return (
     <div className="space-y-6 pb-12">
