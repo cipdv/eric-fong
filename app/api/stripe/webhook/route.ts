@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
-import { recordOrderFromSession } from "@/lib/orderRecorder";
+import { recordOrderFromSessionId } from "@/lib/orderRecorder";
 
 export const runtime = "nodejs";
 
