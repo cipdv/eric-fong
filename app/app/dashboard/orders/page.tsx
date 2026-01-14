@@ -5,6 +5,36 @@ import OrdersList from "@/app/components/OrdersList";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type OrderItem = {
+  printId: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
+  size: string | null;
+  paintingTitle: string | null;
+};
+
+type Order = {
+  id: string;
+  status: string;
+  total_amount: string;
+  currency: string;
+  created_at: string;
+  user_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  customer_first_name: string | null;
+  customer_last_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  ship_address1: string | null;
+  ship_address2: string | null;
+  ship_city: string | null;
+  ship_province: string | null;
+  ship_postal: string | null;
+  ship_country: string | null;
+  items: OrderItem[] | null;
+};
+
 async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get("app_session")?.value;
@@ -23,7 +53,7 @@ async function getCurrentUser() {
 }
 
 async function getOrders() {
-  const { rows } = await sql`
+  const { rows } = await sql<Order>`
     SELECT
       orders.id,
       orders.status,
