@@ -64,14 +64,6 @@ async function getCurrentUser() {
   return rows[0] ?? null;
 }
 
-function normalizeDateInput(value: unknown) {
-  if (!value) return null;
-  const raw = String(value);
-  if (raw.includes("T")) return raw.split("T")[0];
-  if (raw.includes(" ")) return raw.split(" ")[0];
-  return raw;
-}
-
 async function getPaintings(userId: string): Promise<Painting[]> {
   const { rows } = await sql`
     SELECT
@@ -139,7 +131,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
           ORDER BY prints.created_at ASC, loc.name ASC NULLS LAST;
         `;
         printRows = printResult.rows;
-      } catch (err) {
+      } catch {
         const fallbackPrints = await sql<{
           id: string;
           size: string;

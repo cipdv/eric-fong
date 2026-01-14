@@ -16,7 +16,7 @@ async function getHomePainting(): Promise<Painting | null> {
       LIMIT 1;
     `;
     if (rows[0]) return rows[0] as Painting;
-  } catch (err) {
+  } catch {
     // if column doesn't exist, fall through to fallback query
   }
 

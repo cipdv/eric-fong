@@ -68,7 +68,7 @@ export default function UploadPaintingForm({ locations = [] }: Props) {
   >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const handleToggle = (e: React.MouseEvent | React.KeyboardEvent) => {
     const target = e.target as HTMLElement;

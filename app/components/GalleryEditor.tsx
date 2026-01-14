@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -64,15 +63,6 @@ type LocationOption = {
   end_date?: string | null;
   commission_rate?: string | number | null;
 };
-
-function formatStatus(status?: string | null) {
-  if (!status) return "Available for sale";
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "sold") return "Sold";
-  if (normalized === "not available for sale") return "Not available for sale";
-  if (normalized === "available for sale") return "Available for sale";
-  return status;
-}
 
 function stripInches(value: string) {
   return value.replace(/\s*(inches?|in\.?)$/i, "").trim();
@@ -256,26 +246,6 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   ) => {
     setItems((prev) =>
       prev.map((p) => (p.id === paintingId ? { ...p, [field]: value } : p))
-    );
-  };
-
-  const handlePrintChange = (
-    paintingId: string,
-    printId: string,
-    field: keyof Print,
-    value: string
-  ) => {
-    setItems((prev) =>
-      prev.map((p) =>
-        p.id === paintingId
-          ? {
-              ...p,
-              prints: p.prints.map((pr) =>
-                pr.id === printId ? { ...pr, [field]: value } : pr
-              ),
-            }
-          : p
-      )
     );
   };
 
@@ -1510,7 +1480,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                       shipPostal: details.shipPostal || null,
                       shipCountry: details.shipCountry || null,
                     })
-                      .then((data) => {
+                      .then(() => {
                         handleFieldChange(activeSoldPaintingId!, "status", "sold");
                         setActiveSoldPaintingId(null);
                         setPreviousStatus(null);

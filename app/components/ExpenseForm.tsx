@@ -43,7 +43,6 @@ export default function ExpenseForm({ afterSave }: Props) {
   const [message, setMessage] = useState<string | null>(null);
 
   const parsedAmount = parseFloat(amount) || 0;
-  const computedHst = Math.round((hstIncluded ? parsedAmount * (13 / 113) : parsedAmount * 0.13) * 100) / 100;
 
   const isHomeOffice = category === "Home office expenses";
   const isOtherSupplies = category === "Other supplies";

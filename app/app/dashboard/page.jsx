@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { sql } from "@vercel/postgres";
 import OrdersList from "@/app/components/OrdersList";

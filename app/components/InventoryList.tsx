@@ -54,10 +54,9 @@ const removalReasons = [
 type VariantCardProps = {
   print: InventoryPrint;
   locations: LocationOption[];
-  formatMoney: (value: number) => string;
 };
 
-function VariantCard({ print, locations, formatMoney }: VariantCardProps) {
+function VariantCard({ print, locations }: VariantCardProps) {
   const router = useRouter();
   const defaultLocationId = locations[0]?.id ?? "";
   const [locationPriceDrafts, setLocationPriceDrafts] = useState<
@@ -315,8 +314,6 @@ function VariantCard({ print, locations, formatMoney }: VariantCardProps) {
         <div className="divide-y divide-neutral-200">
           {visibleRows.map((row) => {
             const projectedQty = getProjectedQty(row.location_id);
-            const overrideValue = getOverrideValue(row.location_id);
-            const isOverride = overrideValue !== "";
             return (
               <div
                 key={row.location_id}
@@ -655,12 +652,6 @@ export default function InventoryList({ inventory, locations }: Props) {
 
   const defaultLocationId = locations[0]?.id ?? "";
   const defaultPaintingId = inventory[0]?.id ?? "";
-
-  const formatMoney = (value: number) =>
-    Number(value ?? 0).toLocaleString("en-CA", {
-      style: "currency",
-      currency: "CAD",
-    });
 
   const handleAddLocation = async () => {
     if (!newLocationName.trim()) {
@@ -1060,7 +1051,6 @@ export default function InventoryList({ inventory, locations }: Props) {
                         : painting.prints[0]
                     }
                     locations={locations}
-                    formatMoney={formatMoney}
                   />
                 ) : null}
               </>

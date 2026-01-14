@@ -60,16 +60,6 @@ async function getPaintings(): Promise<Painting[]> {
   return paintings;
 }
 
-function formatSize(size: string) {
-  if (!size) return "";
-  const cleaned = size.replace(/"/g, "").replace(/in/gi, "");
-  const parts = cleaned
-    .split("x")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return parts.join(" x ");
-}
-
 export default async function GalleryPage() {
   const paintings = await getPaintings();
   if (!paintings.length) {

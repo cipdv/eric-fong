@@ -10,7 +10,7 @@ type Print = {
   price: number;
   quantity: number;
   size: string;
-  title?: string;
+  title?: string | null;
 };
 
 export default function CheckoutPage({
