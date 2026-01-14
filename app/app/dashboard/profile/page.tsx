@@ -3,7 +3,8 @@ import { sql } from "@vercel/postgres";
 import ProfileEditor from "@/app/components/ProfileEditor";
 
 async function getCurrentUser() {
-  const token = cookies().get("app_session")?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("app_session")?.value;
   if (!token) return null;
 
   const { rows } = await sql`
