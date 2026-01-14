@@ -32,6 +32,7 @@ export async function getPrintByIdAction(printId: string) {
 
 export async function getPrintsBulkAction(ids: string[]) {
   if (!ids.length) return [];
+  const idsParam = ids as unknown as any;
   const { rows } = await sql`
     SELECT
       prints.id,
@@ -42,7 +43,7 @@ export async function getPrintsBulkAction(ids: string[]) {
       paintings.image_url
     FROM prints
     LEFT JOIN paintings ON paintings.id = prints.painting_id
-    WHERE prints.id = ANY(${ids})
+    WHERE prints.id = ANY(${idsParam})
   `;
   return rows.map((row) => ({
     id: row.id,
