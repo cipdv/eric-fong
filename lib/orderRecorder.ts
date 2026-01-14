@@ -33,7 +33,11 @@ function getPrintIdFromLineItem(item: Stripe.LineItem) {
     product_data?: { metadata?: Record<string, string> | null };
   };
   const productMeta =
-    price?.product && typeof price.product !== "string" ? price.product.metadata : undefined;
+    price?.product &&
+    typeof price.product !== "string" &&
+    "metadata" in price.product
+      ? price.product.metadata
+      : undefined;
   const productDataMeta = price?.product_data?.metadata ?? undefined;
   return productMeta?.printId || productDataMeta?.printId || null;
 }
