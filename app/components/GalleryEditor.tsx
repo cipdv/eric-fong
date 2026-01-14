@@ -91,7 +91,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [items, setItems] = useState(paintings);
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>(locations);
   const [homeId, setHomeId] = useState<string | null>(
-    paintings.find((p) => p.is_home_image || (p as any).is_home_page)?.id ?? null
+    paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [retrievingId, setRetrievingId] = useState<string | null>(null);
@@ -161,8 +161,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     const flagged = items
-      .filter((p) => p.is_home_image || (p as any).is_home_page)
-      .map((p) => ({ id: p.id, is_home_image: p.is_home_image, is_home_page: (p as any).is_home_page }));
+      .filter((p) => p.is_home_image || p.is_home_page)
+      .map((p) => ({ id: p.id, is_home_image: p.is_home_image, is_home_page: p.is_home_page }));
     // Debug for homepage selection
     console.log("[GalleryEditor] homeId", homeId, { items: items.length, flagged });
     console.log("[GalleryEditor] first item sample", items[0]);
@@ -328,21 +328,21 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         commission_rate: commissionValue ?? null,
       });
       const createdOption: LocationOption = {
-        id: String((created as any).id),
-        name: String((created as any).name ?? name),
-        notes: (created as any).notes ?? null,
-        address_line1: (created as any).address_line1 ?? null,
-        address_line2: (created as any).address_line2 ?? null,
-        city: (created as any).city ?? null,
-        province: (created as any).province ?? null,
-        postal: (created as any).postal ?? null,
-        country: (created as any).country ?? null,
-        contact_name: (created as any).contact_name ?? null,
-        contact_phone: (created as any).contact_phone ?? null,
-        contact_email: (created as any).contact_email ?? null,
-        start_date: (created as any).start_date ?? null,
-        end_date: (created as any).end_date ?? null,
-        commission_rate: (created as any).commission_rate ?? null,
+        id: String(created.id),
+        name: created.name ?? name,
+        notes: created.notes ?? null,
+        address_line1: created.address_line1 ?? null,
+        address_line2: created.address_line2 ?? null,
+        city: created.city ?? null,
+        province: created.province ?? null,
+        postal: created.postal ?? null,
+        country: created.country ?? null,
+        contact_name: created.contact_name ?? null,
+        contact_phone: created.contact_phone ?? null,
+        contact_email: created.contact_email ?? null,
+        start_date: created.start_date ?? null,
+        end_date: created.end_date ?? null,
+        commission_rate: created.commission_rate ?? null,
       };
       setLocationOptions((prev) => {
         const exists = prev.find((loc) => loc.id === createdOption.id);
@@ -375,7 +375,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
 
   useEffect(() => {
     setItems(paintings);
-    setHomeId(paintings.find((p) => p.is_home_image || (p as any).is_home_page)?.id ?? null);
+    setHomeId(paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null);
   }, [paintings]);
 
   const handleStatusChange = async (paintingId: string, nextStatus: string) => {
@@ -662,7 +662,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           if (e.key === "Enter" || e.key === " ") {
             if (e.currentTarget !== e.target) return;
             e.preventDefault();
-            toggleLocationCard(e as any);
+            toggleLocationCard(e);
           }
         }}
       >

@@ -23,15 +23,15 @@ export default function OrderCompletePage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const [order, setOrder] = useState<OrderResponse | null>(null);
-  const [status, setStatus] = useState<"pending" | "done" | "error">("pending");
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<"pending" | "done" | "error">(
+    () => (sessionId ? "pending" : "error")
+  );
+  const [message, setMessage] = useState<string | null>(
+    () => (sessionId ? null : "Missing checkout session.")
+  );
 
   useEffect(() => {
-    if (!sessionId) {
-      setStatus("error");
-      setMessage("Missing checkout session.");
-      return;
-    }
+    if (!sessionId) return;
     let attempts = 0;
     let cancelled = false;
 

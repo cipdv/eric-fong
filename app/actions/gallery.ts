@@ -24,13 +24,33 @@ async function getUserFromSession() {
   return rows[0]?.id as string | undefined;
 }
 
+type AuthError = Error & { statusCode?: number };
+
 function ensureAuth(userId?: string | null) {
   if (!userId) {
-    const err = new Error("Unauthorized");
-    (err as any).statusCode = 401;
+    const err = new Error("Unauthorized") as AuthError;
+    err.statusCode = 401;
     throw err;
   }
 }
+
+export type LocationRecord = {
+  id: string;
+  name: string;
+  notes: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  province: string | null;
+  postal: string | null;
+  country: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  commission_rate: number | null;
+};
 
 type LocationInput = {
   name: string;
@@ -49,7 +69,7 @@ type LocationInput = {
   commission_rate?: number | null;
 };
 
-export async function createLocation(input: LocationInput) {
+export async function createLocation(input: LocationInput): Promise<LocationRecord> {
   const userId = await getUserFromSession();
   ensureAuth(userId);
 
@@ -74,7 +94,7 @@ export async function createLocation(input: LocationInput) {
         ? Number(input.commission_rate)
         : null;
 
-  const insert = await sql`
+  const insert = await sql<LocationRecord>`
     INSERT INTO locations (
       name,
       notes,
@@ -127,7 +147,7 @@ export async function createLocation(input: LocationInput) {
   `;
 
   if (!insert.rowCount) {
-    const existing = await sql`
+    const existing = await sql<LocationRecord>`
       SELECT
         id,
         name,
@@ -528,10 +548,19 @@ export async function createPaintingAction(formData: FormData) {
     throw new Error("Missing required fields.");
   }
 
-  let prints: any[] = [];
+  type NewPrintPayload = {
+    width: string;
+    height: string;
+    price: string | number;
+    quantity: number;
+  };
+  let prints: NewPrintPayload[] = [];
   if (printsAvailable) {
     try {
-      prints = JSON.parse(printsRaw);
+      const parsed = JSON.parse(printsRaw);
+      if (Array.isArray(parsed)) {
+        prints = parsed;
+      }
     } catch {
       throw new Error("Invalid prints payload.");
     }

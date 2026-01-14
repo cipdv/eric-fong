@@ -21,8 +21,13 @@ async function createSession(userId: string) {
   return token;
 }
 
-async function fetchExistingUser(email: string) {
-  const { rows } = await sql`
+type ExistingUserRow = {
+  id: string;
+  password_hash: string | null;
+};
+
+async function fetchExistingUser(email: string): Promise<ExistingUserRow | null> {
+  const { rows } = await sql<ExistingUserRow>`
     SELECT id, password_hash
     FROM users
     WHERE LOWER(email) = LOWER(${email})
@@ -52,13 +57,12 @@ export async function registerAction(input: {
   }
 
   const bcryptHash = await bcrypt.hash(password, 10);
-  let userId: string | undefined;
-  const inserted = await sql`
+  const inserted = await sql<{ id: string }>`
     INSERT INTO users (first_name, last_name, email, password_hash)
     VALUES (${firstName}, ${lastName}, LOWER(${email}), ${bcryptHash})
     RETURNING id;
   `;
-  userId = inserted.rows[0]?.id as string;
+  const userId = inserted.rows[0]?.id;
 
   if (!userId) {
     throw new Error("Could not create account.");
@@ -78,7 +82,7 @@ export async function loginAction(input: { email: string; password: string }) {
   if (!email || !password) throw new Error("Email and password are required.");
 
   const user = await fetchExistingUser(email);
-  const storedHash = (user?.password_hash as string | null | undefined)?.trim() || null;
+  const storedHash = user?.password_hash?.trim() || null;
 
   const sha = hashPassword(password);
 
@@ -94,13 +98,13 @@ export async function loginAction(input: { email: string; password: string }) {
       // ignore
     }
   }
-  // If user exists but no hash stored, do not lock out completely—allow SHA fallback to storedHash branch above
+  // If user exists but no hash stored, do not lock out completely; allow SHA fallback.
 
   if (!user || !matches) {
     throw new Error("Invalid credentials.");
   }
 
-  const token = await createSession((user as any).id as string);
+  const token = await createSession(user.id);
   const cookieStore = await cookies();
   cookieStore.set("app_session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
   revalidatePath("/");

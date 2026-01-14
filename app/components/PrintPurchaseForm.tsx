@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Props = {
   printId: string;
@@ -38,18 +38,14 @@ function saveCart(items: CartItem[]) {
 
 export default function PrintPurchaseForm({ printId, available }: Props) {
   const router = useRouter();
-  const [quantity, setQuantity] = useState(1);
+  const initialCart = loadCart();
+  const initialFound = initialCart.find((i) => i.printId === printId);
+  const initialQty = initialFound ? Math.max(1, initialFound.quantity) : 1;
+  const [quantity, setQuantity] = useState(initialQty);
   const [status, setStatus] = useState<"idle" | "added">("idle");
-  const [existingQty, setExistingQty] = useState<number | null>(null);
-
-  useEffect(() => {
-    const current = loadCart();
-    const found = current.find((i) => i.printId === printId);
-    if (found) {
-      setQuantity(Math.max(1, found.quantity));
-      setExistingQty(Math.max(1, found.quantity));
-    }
-  }, [printId]);
+  const [existingQty, setExistingQty] = useState<number | null>(
+    initialFound ? Math.max(1, initialFound.quantity) : null
+  );
 
   const handleAddToCart = (e: React.FormEvent) => {
     e.preventDefault();

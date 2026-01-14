@@ -5,7 +5,7 @@ import { recordOrderFromSessionId } from "@/lib/orderRecorder";
 
 export const runtime = "nodejs";
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session | any) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session | null) {
   if (!session?.id) {
     console.error("[webhook] missing session id in event payload");
     return;
@@ -71,11 +71,13 @@ export async function POST(req: Request) {
   }
 
   if (event.type === "checkout.session.completed") {
-    console.log("[webhook] event", event.type, "session:", (event.data?.object as any)?.id);
-    await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+    const session = event.data.object as Stripe.Checkout.Session;
+    console.log("[webhook] event", event.type, "session:", session?.id);
+    await handleCheckoutCompleted(session);
   } else if (event.type === "payment_intent.succeeded") {
-    console.log("[webhook] event", event.type, "pi:", (event.data?.object as any)?.id);
-    await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    console.log("[webhook] event", event.type, "pi:", paymentIntent?.id);
+    await handlePaymentIntentSucceeded(paymentIntent);
   } else {
     console.log("[webhook] ignored event", event.type);
   }

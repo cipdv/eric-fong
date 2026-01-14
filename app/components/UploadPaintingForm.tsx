@@ -70,7 +70,7 @@ export default function UploadPaintingForm({ locations = [] }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleToggle = (e: React.MouseEvent | React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-stop-toggle="true"]')) return;
     setIsOpen((open) => !open);
@@ -167,7 +167,7 @@ export default function UploadPaintingForm({ locations = [] }: Props) {
         if (e.key === "Enter" || e.key === " ") {
           if (e.currentTarget !== e.target) return;
           e.preventDefault();
-          handleToggle(e as any);
+          handleToggle(e);
         }
       }}
     >

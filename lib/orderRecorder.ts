@@ -27,6 +27,17 @@ function deriveTotals(full: Stripe.Checkout.Session) {
   return { grossTotal, hstCollected, netTotal };
 }
 
+function getPrintIdFromLineItem(item: Stripe.LineItem) {
+  const price = item.price as Stripe.Price & {
+    product?: Stripe.Product | Stripe.DeletedProduct | string | null;
+    product_data?: { metadata?: Record<string, string> | null };
+  };
+  const productMeta =
+    price?.product && typeof price.product !== "string" ? price.product.metadata : undefined;
+  const productDataMeta = price?.product_data?.metadata ?? undefined;
+  return productMeta?.printId || productDataMeta?.printId || null;
+}
+
 export async function recordOrderFromSessionId(sessionId: string): Promise<RecordResult> {
   let full: Stripe.Checkout.Session;
   try {
@@ -50,11 +61,7 @@ export async function recordOrderFromSession(full: Stripe.Checkout.Session): Pro
   const lineItemsPresent = Array.isArray(hydrated.line_items?.data) && hydrated.line_items.data.length > 0;
   const hasProductMeta =
     lineItemsPresent &&
-    hydrated.line_items!.data.every(
-      (item) =>
-        (item.price as any)?.product?.metadata?.printId ||
-        (item.price as any)?.product_data?.metadata?.printId
-    );
+    hydrated.line_items!.data.every((item) => Boolean(getPrintIdFromLineItem(item)));
 
   if (!hydrated.shipping_details || !hydrated.customer_details || !lineItemsPresent || !hasProductMeta) {
     try {
@@ -76,10 +83,7 @@ export async function recordOrderFromSession(full: Stripe.Checkout.Session): Pro
   for (const item of lineItems) {
     const qty = Number(item.quantity ?? 0);
     const unitPrice = Number(item.price?.unit_amount ?? 0) / 100;
-    const printId =
-      (item.price as any)?.product?.metadata?.printId ||
-      (item.price as any)?.product_data?.metadata?.printId ||
-      null;
+    const printId = getPrintIdFromLineItem(item);
     if (qty > 0 && unitPrice >= 0 && printId) {
       parsedItems.push({
         printId: String(printId),

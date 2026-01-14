@@ -40,8 +40,8 @@ export default function CheckoutPage({
       setLoadingPrint(true);
       try {
         const data = await getPrintByIdAction(printId);
-        setPrint(data as any);
-        setQuantity((q) => Math.min((data as any).quantity || 1, q));
+        setPrint(data);
+        setQuantity((q) => Math.min(data.quantity || 1, q));
       } catch (err) {
         setMessage((err as Error).message);
       } finally {

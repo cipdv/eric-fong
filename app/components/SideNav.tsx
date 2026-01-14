@@ -12,13 +12,18 @@ type SessionState = {
   firstName?: string;
 };
 
+type SessionResponse = {
+  loggedIn: boolean;
+  user?: { id: string; firstName: string | null };
+};
+
 async function fetchSession(): Promise<SessionState> {
   try {
-    const data = await getSessionAction();
+    const data = (await getSessionAction()) as SessionResponse;
     return {
       loading: false,
       loggedIn: Boolean(data?.loggedIn),
-      firstName: (data as any)?.user?.firstName,
+      firstName: data?.user?.firstName ?? undefined,
     };
   } catch {
     return { loading: false, loggedIn: false };

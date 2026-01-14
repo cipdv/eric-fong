@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     const customer = payload?.customer || {};
-    const idsParam = items.map((i) => i.printId) as unknown as any;
+    const idsParam = items.map((i) => i.printId) as unknown as string;
     const { rows: prints } = await sql<{
       id: string;
       price: string;
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       SELECT prints.id, prints.price, prints.size, paintings.title
       FROM prints
       LEFT JOIN paintings ON paintings.id = prints.painting_id
-      WHERE prints.id = ANY(${idsParam});
+      WHERE prints.id = ANY(${idsParam}::uuid[]);
     `;
 
     const lineItems = items.map((item) => {
