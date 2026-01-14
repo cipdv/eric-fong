@@ -327,9 +327,26 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         contact_email: newLocationContactEmail.trim() || null,
         commission_rate: commissionValue ?? null,
       });
+      const createdOption: LocationOption = {
+        id: String((created as any).id),
+        name: String((created as any).name ?? name),
+        notes: (created as any).notes ?? null,
+        address_line1: (created as any).address_line1 ?? null,
+        address_line2: (created as any).address_line2 ?? null,
+        city: (created as any).city ?? null,
+        province: (created as any).province ?? null,
+        postal: (created as any).postal ?? null,
+        country: (created as any).country ?? null,
+        contact_name: (created as any).contact_name ?? null,
+        contact_phone: (created as any).contact_phone ?? null,
+        contact_email: (created as any).contact_email ?? null,
+        start_date: (created as any).start_date ?? null,
+        end_date: (created as any).end_date ?? null,
+        commission_rate: (created as any).commission_rate ?? null,
+      };
       setLocationOptions((prev) => {
-        const exists = prev.find((loc) => loc.id === created.id);
-        const next = exists ? [...prev] : [...prev, created];
+        const exists = prev.find((loc) => loc.id === createdOption.id);
+        const next = exists ? [...prev] : [...prev, createdOption];
         next.sort((a, b) => a.name.localeCompare(b.name));
         return next;
       });
@@ -345,7 +362,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       setNewLocationContactPhone("");
       setNewLocationContactEmail("");
       setNewLocationCommissionRate("");
-      setInventoryLocationId((prev) => prev || (created as LocationOption).id);
+      setInventoryLocationId((prev) => prev || createdOption.id);
       router.refresh();
       setLocationFeedback("Location added.");
       setTimeout(() => setLocationFeedback(null), 2500);
