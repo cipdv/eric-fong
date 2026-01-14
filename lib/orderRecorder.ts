@@ -1,6 +1,6 @@
 import { sql } from "@vercel/postgres";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { adjustPrintStock } from "@/lib/locationStock";
 
 type RecordResult =
@@ -43,6 +43,7 @@ function getPrintIdFromLineItem(item: Stripe.LineItem) {
 }
 
 export async function recordOrderFromSessionId(sessionId: string): Promise<RecordResult> {
+  const stripe = getStripe();
   let full: Stripe.Checkout.Session;
   try {
     full = await stripe.checkout.sessions.retrieve(sessionId, {
@@ -60,6 +61,7 @@ export async function recordOrderFromSession(full: Stripe.Checkout.Session): Pro
     return { ok: false, error: "missing_session_id" };
   }
 
+  const stripe = getStripe();
   // Some webhook payloads may omit shipping/customer details; ensure we have a fully populated session.
   let hydrated = full;
   const lineItemsPresent = Array.isArray(hydrated.line_items?.data) && hydrated.line_items.data.length > 0;

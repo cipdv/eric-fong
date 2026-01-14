@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { recordOrderFromSessionId } from "@/lib/orderRecorder";
 
 export const runtime = "nodejs";
@@ -26,6 +26,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session | null) 
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+  const stripe = getStripe();
   const paymentIntentId = paymentIntent?.id;
   if (!paymentIntentId) {
     console.error("[webhook] payment_intent.succeeded missing id");
@@ -48,6 +49,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 export async function POST(req: Request) {
   console.log("[webhook] HIT", new Date().toISOString());
 
+  const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error("Missing STRIPE_WEBHOOK_SECRET");

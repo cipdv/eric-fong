@@ -13,7 +13,9 @@ export async function GET(req: Request) {
 
   try {
     // Try to ensure the order exists (hydrate from Stripe if needed)
-    await recordOrderFromSessionId(sessionId);
+    if (process.env.STRIPE_SECRET_KEY) {
+      await recordOrderFromSessionId(sessionId);
+    }
   } catch (err) {
     // ignore; we'll still try to read from DB
     console.error("[api/order/by-session] record attempt failed", err);
