@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { registerAction } from "@/app/actions/authPublic";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,26 +12,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, email, password }),
+      await registerAction({ firstName, lastName, email, password });
+      startTransition(() => {
+        router.push("/app/dashboard");
+        router.refresh();
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? "Registration failed.");
-        setLoading(false);
-        return;
-      }
-      router.push("/app/dashboard");
     } catch (err) {
-      setError("Registration failed.");
+      setError((err as Error).message || "Registration failed.");
       setLoading(false);
     }
   };

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { loginAction } from "@/app/actions/authPublic";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -9,26 +10,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      await loginAction({ email, password });
+      startTransition(() => {
+        router.push("/app/dashboard");
+        router.refresh();
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? "Login failed.");
-        setLoading(false);
-        return;
-      }
-      router.push("/app/dashboard");
     } catch (err) {
-      setError("Login failed.");
+      setError((err as Error).message || "Login failed.");
       setLoading(false);
     }
   };

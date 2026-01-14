@@ -1,6 +1,6 @@
 import CheckoutForm from "@/app/components/CheckoutForm";
-import { sql } from "@vercel/postgres";
 import Image from "next/image";
+import { sql } from "@vercel/postgres";
 
 type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;

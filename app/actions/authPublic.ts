@@ -1,0 +1,109 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { sql } from "@vercel/postgres";
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
+
+function hashPassword(password: string) {
+  // Simple hash for demo; replace with a stronger hash if available.
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+async function createSession(userId: string) {
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+  await sql`
+    INSERT INTO sessions (user_id, token, expires_at)
+    VALUES (${userId}, ${token}, ${expiresAt.toISOString()});
+  `;
+  return token;
+}
+
+async function fetchExistingUser(email: string) {
+  const { rows } = await sql`
+    SELECT id, password_hash
+    FROM users
+    WHERE LOWER(email) = LOWER(${email})
+    LIMIT 1;
+  `;
+  return rows[0] ?? null;
+}
+
+export async function registerAction(input: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}) {
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const email = input.email.trim();
+  const password = input.password;
+
+  if (!firstName || !lastName || !email || !password) {
+    throw new Error("All fields are required.");
+  }
+
+  const existing = await fetchExistingUser(email);
+  if (existing) {
+    throw new Error("Email already registered.");
+  }
+
+  const bcryptHash = await bcrypt.hash(password, 10);
+  let userId: string | undefined;
+  const inserted = await sql`
+    INSERT INTO users (first_name, last_name, email, password_hash)
+    VALUES (${firstName}, ${lastName}, LOWER(${email}), ${bcryptHash})
+    RETURNING id;
+  `;
+  userId = inserted.rows[0]?.id as string;
+
+  if (!userId) {
+    throw new Error("Could not create account.");
+  }
+
+  const token = await createSession(userId);
+  const cookieStore = await cookies();
+  cookieStore.set("app_session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
+  revalidatePath("/");
+  revalidatePath("/app/dashboard");
+  return { ok: true };
+}
+
+export async function loginAction(input: { email: string; password: string }) {
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
+  if (!email || !password) throw new Error("Email and password are required.");
+
+  const user = await fetchExistingUser(email);
+  const storedHash = (user?.password_hash as string | null | undefined)?.trim() || null;
+
+  const sha = hashPassword(password);
+
+  let matches = false;
+  if (storedHash) {
+    try {
+      if (storedHash.startsWith("$2")) {
+        matches = await bcrypt.compare(password, storedHash);
+      } else if (storedHash === password || storedHash === sha) {
+        matches = true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  // If user exists but no hash stored, do not lock out completely—allow SHA fallback to storedHash branch above
+
+  if (!user || !matches) {
+    throw new Error("Invalid credentials.");
+  }
+
+  const token = await createSession((user as any).id as string);
+  const cookieStore = await cookies();
+  cookieStore.set("app_session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
+  revalidatePath("/");
+  revalidatePath("/app/dashboard");
+  return { ok: true };
+}

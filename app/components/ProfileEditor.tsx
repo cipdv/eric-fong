@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { updateProfileAction } from "@/app/actions/profile";
 
 type Props = {
   initialAbout?: string;
@@ -42,14 +43,7 @@ export default function ProfileEditor({
     }
 
     try {
-      const res = await fetch("/api/profile", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Update failed");
-      }
+      await updateProfileAction(formData);
       setStatus("success");
       setMessage("Profile updated.");
       router.refresh();

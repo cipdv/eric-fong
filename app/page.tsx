@@ -3,12 +3,13 @@ import { sql } from "@vercel/postgres";
 
 type Painting = {
   image_url: string | null;
+  title: string | null;
 };
 
 async function getHomePainting(): Promise<Painting | null> {
   try {
     const { rows } = await sql`
-      SELECT image_url
+      SELECT image_url, title
       FROM paintings
       WHERE is_home_image = TRUE
       ORDER BY created_at DESC
@@ -20,7 +21,7 @@ async function getHomePainting(): Promise<Painting | null> {
   }
 
   const fallback = await sql`
-    SELECT image_url
+    SELECT image_url, title
     FROM paintings
     ORDER BY created_at DESC
     LIMIT 1;
@@ -31,10 +32,8 @@ async function getHomePainting(): Promise<Painting | null> {
 export default function Home() {
   const paintingPromise = getHomePainting();
   return (
-    <div className="pb-12">
-      <div className="w-full max-w-6xl overflow-hidden ml-0 mr-auto lg:-ml-8">
-        <HomeImage paintingPromise={paintingPromise} />
-      </div>
+    <div className="flex w-full justify-center sm:justify-start pb-12 px-4 sm:px-6">
+      <HomeImage paintingPromise={paintingPromise} />
     </div>
   );
 }
@@ -46,14 +45,22 @@ async function HomeImage({
 }) {
   const painting = await paintingPromise;
   const src = painting?.image_url || "/1_1748550734_99480.webp";
+  const title = painting?.title || "Untitled";
   return (
-    <Image
-      src={src}
-      alt="Homepage painting"
-      width={1400}
-      height={1400}
-      className="h-full w-full max-h-[85vh] object-contain"
-      priority
-    />
+    <div className="inline-flex flex-col items-start space-y-3">
+      <a href="/gallery" className="block transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-white">
+        <Image
+          src={src}
+          alt={title ? `${title} painting` : "Homepage painting"}
+          width={1400}
+          height={1400}
+          className="block h-auto max-h-[75vh] w-auto max-w-full sm:max-w-[80vw] object-contain"
+          priority
+        />
+      </a>
+      <p className="text-left text-sm font-medium text-neutral-600">
+        {title}
+      </p>
+    </div>
   );
 }
