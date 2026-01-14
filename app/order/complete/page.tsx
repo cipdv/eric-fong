@@ -31,6 +31,15 @@ export default function OrderCompletePage() {
   );
 
   useEffect(() => {
+    if (status !== "done") return;
+    try {
+      window.localStorage.removeItem("cartItems");
+    } catch {
+      // ignore storage errors
+    }
+  }, [status]);
+
+  useEffect(() => {
     if (!sessionId) return;
     let attempts = 0;
     let cancelled = false;
