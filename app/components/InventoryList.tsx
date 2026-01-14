@@ -91,6 +91,7 @@ function VariantCard({ print, locations, formatMoney }: VariantCardProps) {
         location_id: string;
         location_name: string;
         quantity: number;
+        commission_rate: number | null;
         price_override: number | null;
       }
     >();
