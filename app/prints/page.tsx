@@ -76,15 +76,16 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
 }
 
 type PrintsPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     paintingId?: string;
-  };
+  }>;
 };
 
 export default async function PrintsPage({ searchParams }: PrintsPageProps) {
+  const resolved = searchParams ? await searchParams : undefined;
   const targetPaintingId =
-    typeof searchParams?.paintingId === "string"
-      ? searchParams.paintingId
+    typeof resolved?.paintingId === "string"
+      ? resolved.paintingId
       : undefined;
   const paintings = await getPaintingsWithPrints();
 
