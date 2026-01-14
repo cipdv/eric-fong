@@ -132,7 +132,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState<string | null>(null);
   const [expandedPaintingId, setExpandedPaintingId] = useState<string | null>(null);
-  const toggleLocationCard = (e: React.MouseEvent) => {
+  const toggleLocationCard = (
+    e: React.MouseEvent | React.KeyboardEvent
+  ) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-stop-toggle="true"]')) return;
     setShowLocationForm((prev) => !prev);

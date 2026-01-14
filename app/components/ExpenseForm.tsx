@@ -42,7 +42,6 @@ export default function ExpenseForm({ afterSave }: Props) {
   );
   const [message, setMessage] = useState<string | null>(null);
 
-  const parsedAmount = parseFloat(amount) || 0;
 
   const isHomeOffice = category === "Home office expenses";
   const isOtherSupplies = category === "Other supplies";
