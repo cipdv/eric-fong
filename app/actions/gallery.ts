@@ -24,7 +24,7 @@ async function getUserFromSession() {
   return rows[0]?.id as string | undefined;
 }
 
-function ensureAuth(userId?: string) {
+function ensureAuth(userId?: string | null) {
   if (!userId) {
     const err = new Error("Unauthorized");
     (err as any).statusCode = 401;
