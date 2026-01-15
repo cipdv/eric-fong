@@ -71,7 +71,7 @@ export async function requestRestockNotification(
       `;
     }
     await sql`COMMIT`;
-  } catch (err) {
+  } catch {
     try {
       await sql`ROLLBACK`;
     } catch {}

@@ -36,6 +36,17 @@ type InventoryPainting = {
 type LocationOption = {
   id: string;
   name: string;
+  notes?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal?: string | null;
+  country?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  commission_rate?: number | null;
 };
 
 type Props = {
