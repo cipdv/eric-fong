@@ -43,6 +43,30 @@ function getPrintIdFromLineItem(item: Stripe.LineItem) {
   return productMeta?.printId || productDataMeta?.printId || null;
 }
 
+async function getOnlineShopCommissionRate() {
+  const { rows } = await sql<{ commission_rate: number | null }>`
+    SELECT commission_rate
+    FROM locations
+    WHERE name = 'Online shop'
+    LIMIT 1;
+  `;
+  const rate = rows[0]?.commission_rate;
+  return rate !== null && rate !== undefined ? Number(rate) : null;
+}
+
+async function getPrintOwnerId(printIds: string[]) {
+  if (!printIds.length) return null;
+  const idsParam = printIds as unknown as string;
+  const { rows } = await sql<{ user_id: string | null }>`
+    SELECT paintings.user_id
+    FROM prints
+    JOIN paintings ON paintings.id = prints.painting_id
+    WHERE prints.id = ANY(${idsParam}::uuid[])
+    LIMIT 1;
+  `;
+  return rows[0]?.user_id ?? null;
+}
+
 async function sendOrderNotification(params: {
   orderId: string;
   items: { printId: string; quantity: number; unitPrice: number }[];
@@ -348,6 +372,22 @@ export async function recordOrderFromSession(full: Stripe.Checkout.Session): Pro
         INSERT INTO order_items (order_id, print_id, quantity, unit_price)
         VALUES (${orderId}, ${item.printId}, ${item.quantity}, ${item.unitPrice});
       `;
+    }
+
+    const commissionRate = await getOnlineShopCommissionRate();
+    if (commissionRate !== null && commissionRate > 0) {
+      const ownerId = await getPrintOwnerId(parsedItems.map((item) => item.printId));
+      if (ownerId) {
+        const feeAmount = Math.round((grossTotal * commissionRate / 100) * 100) / 100;
+        if (feeAmount > 0) {
+          const expenseDate = new Date().toISOString().slice(0, 10);
+          const expenseDetails = `Online shop (${commissionRate}%)`;
+          await sql`
+            INSERT INTO expenses (user_id, amount, category, subcategory, details, date, hst)
+            VALUES (${ownerId}, ${feeAmount}, 'Bank fees', 'stripe transaction fee', ${expenseDetails}, ${expenseDate}, 0);
+          `;
+        }
+      }
     }
 
     await sql`COMMIT`;

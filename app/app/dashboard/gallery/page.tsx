@@ -238,6 +238,7 @@ async function getLocations(): Promise<Location[]> {
       end_date,
       commission_rate
     FROM locations
+    WHERE status IS NULL OR status <> 'removed'
     ORDER BY name ASC;
   `;
   return rows as Location[];

@@ -178,6 +178,102 @@ export async function createLocation(input: LocationInput): Promise<LocationReco
   return insert.rows[0];
 }
 
+export async function updateLocationAction(input: {
+  locationId: string;
+  name: string;
+  notes?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal?: string | null;
+  country?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  commission_rate?: number | null;
+}) {
+  const userId = await getUserFromSession();
+  ensureAuth(userId);
+
+  const name = input.name?.trim();
+  if (!name) throw new Error("Name is required.");
+
+  const { rows: existingRows } = await sql<{ name: string | null }>`
+    SELECT name
+    FROM locations
+    WHERE id = ${input.locationId}
+    LIMIT 1;
+  `;
+  const existingName = existingRows[0]?.name?.trim().toLowerCase();
+  if (existingName === "online shop" && name.trim().toLowerCase() !== "online shop") {
+    throw new Error('The "Online shop" location cannot be renamed.');
+  }
+
+  const commission =
+    input.commission_rate === null || input.commission_rate === undefined
+      ? null
+      : Number.isFinite(Number(input.commission_rate))
+        ? Number(input.commission_rate)
+        : null;
+
+  const updated = await sql`
+    UPDATE locations
+    SET name = ${name},
+        notes = ${input.notes?.trim() || null},
+        address_line1 = ${input.address_line1?.trim() || null},
+        address_line2 = ${input.address_line2?.trim() || null},
+        city = ${input.city?.trim() || null},
+        province = ${input.province?.trim() || null},
+        postal = ${input.postal?.trim() || null},
+        country = ${input.country?.trim() || null},
+        contact_name = ${input.contact_name?.trim() || null},
+        contact_phone = ${input.contact_phone?.trim() || null},
+        contact_email = ${input.contact_email?.trim() || null},
+        start_date = ${input.start_date || null},
+        end_date = ${input.end_date || null},
+        commission_rate = ${commission}
+    WHERE id = ${input.locationId}
+    RETURNING id;
+  `;
+
+  if (!updated.rowCount) {
+    throw new Error("Location not found.");
+  }
+
+  revalidatePath("/app/dashboard/gallery");
+  revalidatePath("/app/dashboard/inventory");
+  return { ok: true };
+}
+
+export async function removeLocationAction(locationId: string) {
+  const userId = await getUserFromSession();
+  ensureAuth(userId);
+
+  const { rows } = await sql<{ name: string | null }>`
+    SELECT name
+    FROM locations
+    WHERE id = ${locationId}
+    LIMIT 1;
+  `;
+  const name = rows[0]?.name?.trim().toLowerCase();
+  if (name === "online shop") {
+    throw new Error('The "Online shop" location cannot be removed.');
+  }
+
+  await sql`
+    UPDATE locations
+    SET status = 'removed'
+    WHERE id = ${locationId};
+  `;
+
+  revalidatePath("/app/dashboard/gallery");
+  revalidatePath("/app/dashboard/inventory");
+  return { ok: true };
+}
+
 type PrintInput = { id: string; price: string; size: string };
 
 export async function updatePaintingAction(input: {

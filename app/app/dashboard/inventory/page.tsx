@@ -150,6 +150,7 @@ async function getLocations(): Promise<LocationOption[]> {
   const { rows } = await sql<LocationOption>`
     SELECT id, name
     FROM locations
+    WHERE status IS NULL OR status <> 'removed'
     ORDER BY name ASC;
   `;
   return rows.map((row) => ({

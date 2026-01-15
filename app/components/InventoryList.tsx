@@ -10,7 +10,7 @@ import {
   sellPrintInventoryAction,
   updatePrintLocationPriceAction,
 } from "@/app/actions/inventory";
-import { createLocation } from "@/app/actions/gallery";
+import { createLocation, removeLocationAction, updateLocationAction } from "@/app/actions/gallery";
 
 type InventoryPrint = {
   id: string;
@@ -112,17 +112,6 @@ function VariantCard({ print, locations }: VariantCardProps) {
             ? loc.commission_rate
             : null;
         existing.price_override = loc.price_override ?? null;
-      } else {
-        map.set(loc.location_id, {
-          location_id: loc.location_id,
-          location_name: loc.location_name || "Unassigned",
-          quantity: Number(loc.quantity ?? 0),
-          commission_rate:
-            loc.commission_rate !== null && loc.commission_rate !== undefined
-              ? loc.commission_rate
-              : null,
-          price_override: loc.price_override ?? null,
-        });
       }
     });
     return Array.from(map.values()).sort((a, b) =>
@@ -689,6 +678,24 @@ export default function InventoryList({ inventory, locations }: Props) {
   const [newLocationContactEmail, setNewLocationContactEmail] = useState("");
   const [newLocationCommissionRate, setNewLocationCommissionRate] = useState("");
   const [addingLocation, setAddingLocation] = useState(false);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [deletingLocation, setDeletingLocation] = useState(false);
+  const [locationTab, setLocationTab] = useState<"add" | "edit">("add");
+  const [editLocationId, setEditLocationId] = useState<string | null>(
+    locations[0]?.id ?? null
+  );
+  const [editLocationName, setEditLocationName] = useState("");
+  const [editLocationNotes, setEditLocationNotes] = useState("");
+  const [editLocationAddress1, setEditLocationAddress1] = useState("");
+  const [editLocationAddress2, setEditLocationAddress2] = useState("");
+  const [editLocationCity, setEditLocationCity] = useState("");
+  const [editLocationProvince, setEditLocationProvince] = useState("");
+  const [editLocationPostal, setEditLocationPostal] = useState("");
+  const [editLocationCountry, setEditLocationCountry] = useState("");
+  const [editLocationContactName, setEditLocationContactName] = useState("");
+  const [editLocationContactPhone, setEditLocationContactPhone] = useState("");
+  const [editLocationContactEmail, setEditLocationContactEmail] = useState("");
+  const [editLocationCommissionRate, setEditLocationCommissionRate] = useState("");
   const [locationMessage, setLocationMessage] = useState<{
     text: string;
     tone: "success" | "error";
@@ -698,6 +705,34 @@ export default function InventoryList({ inventory, locations }: Props) {
 
   const defaultLocationId = locations[0]?.id ?? "";
   const defaultPaintingId = inventory[0]?.id ?? "";
+
+  useEffect(() => {
+    if (!editLocationId && locations[0]?.id) {
+      setEditLocationId(locations[0].id);
+    }
+  }, [editLocationId, locations]);
+
+  useEffect(() => {
+    if (!editLocationId) return;
+    const selected = locations.find((loc) => loc.id === editLocationId);
+    if (!selected) return;
+    setEditLocationName(selected.name ?? "");
+    setEditLocationNotes(selected.notes ?? "");
+    setEditLocationAddress1(selected.address_line1 ?? "");
+    setEditLocationAddress2(selected.address_line2 ?? "");
+    setEditLocationCity(selected.city ?? "");
+    setEditLocationProvince(selected.province ?? "");
+    setEditLocationPostal(selected.postal ?? "");
+    setEditLocationCountry(selected.country ?? "");
+    setEditLocationContactName(selected.contact_name ?? "");
+    setEditLocationContactPhone(selected.contact_phone ?? "");
+    setEditLocationContactEmail(selected.contact_email ?? "");
+    setEditLocationCommissionRate(
+      selected.commission_rate !== null && selected.commission_rate !== undefined
+        ? String(selected.commission_rate)
+        : ""
+    );
+  }, [editLocationId, locations]);
 
   const handleAddLocation = async () => {
     if (!newLocationName.trim()) {
@@ -745,6 +780,72 @@ export default function InventoryList({ inventory, locations }: Props) {
       });
     } finally {
       setAddingLocation(false);
+    }
+  };
+
+  const handleUpdateLocation = async () => {
+    if (!editLocationId) return;
+    if (!editLocationName.trim()) {
+      setLocationMessage({ text: "Location name is required.", tone: "error" });
+      return;
+    }
+    setUpdatingLocation(true);
+    setLocationMessage(null);
+    try {
+      await updateLocationAction({
+        locationId: editLocationId,
+        name: editLocationName,
+        notes: editLocationNotes || null,
+        address_line1: editLocationAddress1 || null,
+        address_line2: editLocationAddress2 || null,
+        city: editLocationCity || null,
+        province: editLocationProvince || null,
+        postal: editLocationPostal || null,
+        country: editLocationCountry || null,
+        contact_name: editLocationContactName || null,
+        contact_phone: editLocationContactPhone || null,
+        contact_email: editLocationContactEmail || null,
+        commission_rate:
+          editLocationCommissionRate.trim() === ""
+            ? null
+            : Number(editLocationCommissionRate),
+      });
+      setLocationMessage({ text: "Location updated.", tone: "success" });
+      router.refresh();
+    } catch (err) {
+      setLocationMessage({
+        text: (err as Error)?.message || "Unable to update location.",
+        tone: "error",
+      });
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
+
+  const handleDeleteLocation = async () => {
+    if (!editLocationId) return;
+    if (editLocationName.trim().toLowerCase() === "online shop") {
+      setLocationMessage({
+        text: 'The "Online shop" location cannot be removed.',
+        tone: "error",
+      });
+      return;
+    }
+    if (!confirm("Remove this location? It will no longer appear in lists.")) return;
+    setDeletingLocation(true);
+    setLocationMessage(null);
+    try {
+      await removeLocationAction(editLocationId);
+      setLocationMessage({ text: "Location removed.", tone: "success" });
+      setEditLocationId(null);
+      router.refresh();
+    } catch (err) {
+      setLocationMessage({
+        text: (err as Error)?.message || "Unable to remove location.",
+        tone: "error",
+      });
+    } finally {
+      setDeletingLocation(false);
     }
   };
 
@@ -911,118 +1012,285 @@ export default function InventoryList({ inventory, locations }: Props) {
       </details>
       <details className="rounded-lg border border-dashed border-neutral-300 bg-white p-4">
         <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-neutral-800">
-          <span>Add new location</span>
+          <span>Locations</span>
           <span className="text-xs text-neutral-500">Expand</span>
         </summary>
         <div className="mt-3 space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={newLocationName}
-              onChange={(e) => setNewLocationName(e.target.value)}
-              placeholder="Location name"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-            <input
-              value={newLocationNotes}
-              onChange={(e) => setNewLocationNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="space-y-2">
-            <input
-              value={newLocationAddress1}
-              onChange={(e) => setNewLocationAddress1(e.target.value)}
-              placeholder="Address line 1"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-            <input
-              value={newLocationAddress2}
-              onChange={(e) => setNewLocationAddress2(e.target.value)}
-              placeholder="Address line 2"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                value={newLocationCity}
-                onChange={(e) => setNewLocationCity(e.target.value)}
-                placeholder="City"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={newLocationProvince}
-                onChange={(e) => setNewLocationProvince(e.target.value)}
-                placeholder="Province/State"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                value={newLocationPostal}
-                onChange={(e) => setNewLocationPostal(e.target.value)}
-                placeholder="Postal/Zip"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={newLocationCountry}
-                onChange={(e) => setNewLocationCountry(e.target.value)}
-                placeholder="Country"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={newLocationContactName}
-              onChange={(e) => setNewLocationContactName(e.target.value)}
-              placeholder="Contact name"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-            <input
-              value={newLocationContactPhone}
-              onChange={(e) => setNewLocationContactPhone(e.target.value)}
-              placeholder="Contact phone"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={newLocationContactEmail}
-              onChange={(e) => setNewLocationContactEmail(e.target.value)}
-              placeholder="Contact email"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={newLocationCommissionRate}
-              onChange={(e) => setNewLocationCommissionRate(e.target.value)}
-              placeholder="Commission %"
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={handleAddLocation}
-              disabled={addingLocation}
-              className="rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+              onClick={() => setLocationTab("add")}
+              className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+                locationTab === "add"
+                  ? "bg-neutral-900 text-white"
+                  : "border border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+              }`}
             >
-              {addingLocation ? "Saving..." : "Save location"}
+              Add new location
             </button>
-            {locationMessage ? (
-              <span
-                className={`text-xs ${
-                  locationMessage.tone === "success"
-                    ? "text-emerald-700"
-                    : "text-red-700"
-                }`}
-              >
-                {locationMessage.text}
-              </span>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => setLocationTab("edit")}
+              className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+                locationTab === "edit"
+                  ? "bg-neutral-900 text-white"
+                  : "border border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+              }`}
+            >
+              Edit locations
+            </button>
           </div>
+
+          {locationTab === "add" ? (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={newLocationName}
+                  onChange={(e) => setNewLocationName(e.target.value)}
+                  placeholder="Location name"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={newLocationNotes}
+                  onChange={(e) => setNewLocationNotes(e.target.value)}
+                  placeholder="Notes (optional)"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <input
+                  value={newLocationAddress1}
+                  onChange={(e) => setNewLocationAddress1(e.target.value)}
+                  placeholder="Address line 1"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={newLocationAddress2}
+                  onChange={(e) => setNewLocationAddress2(e.target.value)}
+                  placeholder="Address line 2"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={newLocationCity}
+                    onChange={(e) => setNewLocationCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={newLocationProvince}
+                    onChange={(e) => setNewLocationProvince(e.target.value)}
+                    placeholder="Province/State"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={newLocationPostal}
+                    onChange={(e) => setNewLocationPostal(e.target.value)}
+                    placeholder="Postal/Zip"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={newLocationCountry}
+                    onChange={(e) => setNewLocationCountry(e.target.value)}
+                    placeholder="Country"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={newLocationContactName}
+                  onChange={(e) => setNewLocationContactName(e.target.value)}
+                  placeholder="Contact name"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={newLocationContactPhone}
+                  onChange={(e) => setNewLocationContactPhone(e.target.value)}
+                  placeholder="Contact phone"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={newLocationContactEmail}
+                  onChange={(e) => setNewLocationContactEmail(e.target.value)}
+                  placeholder="Contact email"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={newLocationCommissionRate}
+                  onChange={(e) => setNewLocationCommissionRate(e.target.value)}
+                  placeholder="Commission %"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddLocation}
+                  disabled={addingLocation}
+                  className="rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {addingLocation ? "Saving..." : "Save location"}
+                </button>
+                {locationMessage ? (
+                  <span
+                    className={`text-xs ${
+                      locationMessage.tone === "success"
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    {locationMessage.text}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <select
+                  value={editLocationId || ""}
+                  onChange={(e) => setEditLocationId(e.target.value || null)}
+                  className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select a location</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={editLocationName}
+                  onChange={(e) => setEditLocationName(e.target.value)}
+                  placeholder="Location name"
+                  disabled={editLocationName.trim().toLowerCase() === "online shop"}
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={editLocationNotes}
+                  onChange={(e) => setEditLocationNotes(e.target.value)}
+                  placeholder="Notes (optional)"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <input
+                  value={editLocationAddress1}
+                  onChange={(e) => setEditLocationAddress1(e.target.value)}
+                  placeholder="Address line 1"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={editLocationAddress2}
+                  onChange={(e) => setEditLocationAddress2(e.target.value)}
+                  placeholder="Address line 2"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={editLocationCity}
+                    onChange={(e) => setEditLocationCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={editLocationProvince}
+                    onChange={(e) => setEditLocationProvince(e.target.value)}
+                    placeholder="Province/State"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={editLocationPostal}
+                    onChange={(e) => setEditLocationPostal(e.target.value)}
+                    placeholder="Postal/Zip"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={editLocationCountry}
+                    onChange={(e) => setEditLocationCountry(e.target.value)}
+                    placeholder="Country"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={editLocationContactName}
+                  onChange={(e) => setEditLocationContactName(e.target.value)}
+                  placeholder="Contact name"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={editLocationContactPhone}
+                  onChange={(e) => setEditLocationContactPhone(e.target.value)}
+                  placeholder="Contact phone"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={editLocationContactEmail}
+                  onChange={(e) => setEditLocationContactEmail(e.target.value)}
+                  placeholder="Contact email"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editLocationCommissionRate}
+                  onChange={(e) => setEditLocationCommissionRate(e.target.value)}
+                  placeholder="Commission %"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUpdateLocation}
+                  disabled={updatingLocation || !editLocationId}
+                  className="rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {updatingLocation ? "Saving..." : "Save changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteLocation}
+                  disabled={
+                    deletingLocation ||
+                    !editLocationId ||
+                    editLocationName.trim().toLowerCase() === "online shop"
+                  }
+                  className="rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deletingLocation ? "Removing..." : "Delete location"}
+                </button>
+                {locationMessage ? (
+                  <span
+                    className={`text-xs ${
+                      locationMessage.tone === "success"
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    {locationMessage.text}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
       </details>
       {inventory.map((painting) => (

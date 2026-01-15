@@ -8,7 +8,9 @@ import {
   createLocation,
   deletePaintingAction,
   markPaintingSoldAction,
+  removeLocationAction,
   unsellPaintingAction,
+  updateLocationAction,
   updatePaintingAction,
 } from "@/app/actions/gallery";
 
@@ -130,9 +132,27 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [newLocationContactEmail, setNewLocationContactEmail] = useState("");
   const [newLocationCommissionRate, setNewLocationCommissionRate] = useState("");
   const [addingLocation, setAddingLocation] = useState(false);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [deletingLocation, setDeletingLocation] = useState(false);
+  const [locationTab, setLocationTab] = useState<"add" | "edit">("add");
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState<string | null>(null);
   const [expandedPaintingId, setExpandedPaintingId] = useState<string | null>(null);
+  const [editLocationId, setEditLocationId] = useState<string | null>(
+    locations[0]?.id ?? null
+  );
+  const [editLocationName, setEditLocationName] = useState("");
+  const [editLocationNotes, setEditLocationNotes] = useState("");
+  const [editLocationAddress1, setEditLocationAddress1] = useState("");
+  const [editLocationAddress2, setEditLocationAddress2] = useState("");
+  const [editLocationCity, setEditLocationCity] = useState("");
+  const [editLocationProvince, setEditLocationProvince] = useState("");
+  const [editLocationPostal, setEditLocationPostal] = useState("");
+  const [editLocationCountry, setEditLocationCountry] = useState("");
+  const [editLocationContactName, setEditLocationContactName] = useState("");
+  const [editLocationContactPhone, setEditLocationContactPhone] = useState("");
+  const [editLocationContactEmail, setEditLocationContactEmail] = useState("");
+  const [editLocationCommissionRate, setEditLocationCommissionRate] = useState("");
   const toggleLocationCard = (
     e: React.MouseEvent | React.KeyboardEvent
   ) => {
@@ -162,27 +182,40 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   }, [homeId, items]);
 
   useEffect(() => {
-    const fromItems = items
-      .map((p) =>
-        p.location_id
-          ? {
-              id: p.location_id,
-              name: p.location_name || "Unknown location",
-              notes: null,
-            }
-          : null
-      )
-      .filter(Boolean) as LocationOption[];
-
-    const merged = [...locations, ...fromItems].reduce<LocationOption[]>((acc, loc) => {
-      if (!acc.find((l) => l.id === loc.id)) {
-        acc.push(loc);
-      }
-      return acc;
-    }, []);
+    const merged = [...locations];
     merged.sort((a, b) => a.name.localeCompare(b.name));
     setLocationOptions(merged);
-  }, [locations, items]);
+  }, [locations]);
+
+  useEffect(() => {
+    if (!editLocationId && locationOptions[0]?.id) {
+      setEditLocationId(locationOptions[0].id);
+    }
+  }, [editLocationId, locationOptions]);
+
+  useEffect(() => {
+    if (!editLocationId) return;
+    const selected = locationOptions.find(
+      (loc) => idToString(loc.id) === idToString(editLocationId)
+    );
+    if (!selected) return;
+    setEditLocationName(selected.name ?? "");
+    setEditLocationNotes(selected.notes ?? "");
+    setEditLocationAddress1(selected.address_line1 ?? "");
+    setEditLocationAddress2(selected.address_line2 ?? "");
+    setEditLocationCity(selected.city ?? "");
+    setEditLocationProvince(selected.province ?? "");
+    setEditLocationPostal(selected.postal ?? "");
+    setEditLocationCountry(selected.country ?? "");
+    setEditLocationContactName(selected.contact_name ?? "");
+    setEditLocationContactPhone(selected.contact_phone ?? "");
+    setEditLocationContactEmail(selected.contact_email ?? "");
+    setEditLocationCommissionRate(
+      selected.commission_rate !== null && selected.commission_rate !== undefined
+        ? String(selected.commission_rate)
+        : ""
+    );
+  }, [editLocationId, locationOptions]);
 
   useEffect(() => {
     if (!inventoryLocationId && locationOptions[0]?.id) {
@@ -525,6 +558,72 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     }
   };
 
+  const handleUpdateLocation = async () => {
+    if (!editLocationId) return;
+    const name = editLocationName.trim();
+    if (!name) {
+      setMessage("Location name is required.");
+      return;
+    }
+    const commission = editLocationCommissionRate.trim();
+    const commissionValue =
+      commission === ""
+        ? undefined
+        : Number.isFinite(Number(commission))
+          ? Number(commission)
+          : null;
+    setUpdatingLocation(true);
+    setMessage(null);
+    setLocationFeedback(null);
+    try {
+      await updateLocationAction({
+        locationId: editLocationId,
+        name,
+        notes: editLocationNotes.trim() || null,
+        address_line1: editLocationAddress1.trim() || null,
+        address_line2: editLocationAddress2.trim() || null,
+        city: editLocationCity.trim() || null,
+        province: editLocationProvince.trim() || null,
+        postal: editLocationPostal.trim() || null,
+        country: editLocationCountry.trim() || null,
+        contact_name: editLocationContactName.trim() || null,
+        contact_phone: editLocationContactPhone.trim() || null,
+        contact_email: editLocationContactEmail.trim() || null,
+        commission_rate: commissionValue ?? null,
+      });
+      setLocationFeedback("Location updated.");
+      setTimeout(() => setLocationFeedback(null), 2500);
+      router.refresh();
+    } catch (err) {
+      setMessage((err as Error).message);
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
+
+  const handleDeleteLocation = async () => {
+    if (!editLocationId) return;
+    if (editLocationName.trim().toLowerCase() === "online shop") {
+      setMessage('The "Online shop" location cannot be removed.');
+      return;
+    }
+    if (!confirm("Remove this location? It will no longer appear in lists.")) return;
+    setDeletingLocation(true);
+    setMessage(null);
+    setLocationFeedback(null);
+    try {
+      await removeLocationAction(editLocationId);
+      setLocationFeedback("Location removed.");
+      setTimeout(() => setLocationFeedback(null), 2500);
+      setEditLocationId(null);
+      router.refresh();
+    } catch (err) {
+      setMessage((err as Error).message);
+    } finally {
+      setDeletingLocation(false);
+    }
+  };
+
   const handleMarkRetrieved = async (paintingId: string) => {
     const painting = items.find((item) => item.id === paintingId);
     if (!painting) return;
@@ -642,7 +741,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-neutral-900">Add a new location</div>
+          <div className="text-lg font-semibold text-neutral-900">Locations</div>
         </div>
         {locationFeedback && (
           <div className="mt-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
@@ -655,118 +754,290 @@ export default function GalleryEditor({ paintings, locations }: Props) {
             data-stop-toggle="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-800">Location name</label>
-                <input
-                  value={newLocationName}
-                  onChange={(e) => setNewLocationName(e.target.value)}
-                  placeholder="Location name"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-800">Notes (optional)</label>
-                <input
-                  value={newLocationNotes}
-                  onChange={(e) => setNewLocationNotes(e.target.value)}
-                  placeholder="Notes (optional)"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-800">Address</label>
-              <input
-                value={newLocationAddress1}
-                onChange={(e) => setNewLocationAddress1(e.target.value)}
-                placeholder="Address line 1"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              />
-              <input
-                value={newLocationAddress2}
-                onChange={(e) => setNewLocationAddress2(e.target.value)}
-                placeholder="Address line 2"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              />
-              <div className="grid gap-3 lg:grid-cols-2">
-                <input
-                  value={newLocationCity}
-                  onChange={(e) => setNewLocationCity(e.target.value)}
-                  placeholder="City"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-                <input
-                  value={newLocationProvince}
-                  onChange={(e) => setNewLocationProvince(e.target.value)}
-                  placeholder="Province/State"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-              </div>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <input
-                  value={newLocationPostal}
-                  onChange={(e) => setNewLocationPostal(e.target.value)}
-                  placeholder="Postal/Zip"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-                <input
-                  value={newLocationCountry}
-                  onChange={(e) => setNewLocationCountry(e.target.value)}
-                  placeholder="Country"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-800">Contact</label>
-              <input
-                value={newLocationContactName}
-                onChange={(e) => setNewLocationContactName(e.target.value)}
-                placeholder="Contact name"
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              />
-              <div className="grid gap-3 lg:grid-cols-2">
-                <input
-                  value={newLocationContactPhone}
-                  onChange={(e) => setNewLocationContactPhone(e.target.value)}
-                  placeholder="Contact phone"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-                <input
-                  value={newLocationContactEmail}
-                  onChange={(e) => setNewLocationContactEmail(e.target.value)}
-                  placeholder="Contact email"
-                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-800">Commission %</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={newLocationCommissionRate}
-                onChange={(e) => setNewLocationCommissionRate(e.target.value)}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                placeholder="e.g. 20"
-              />
-            </div>
-
-            <div className="pt-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={handleAddLocation}
-                disabled={addingLocation}
-                className="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
+                onClick={() => setLocationTab("add")}
+                className={`rounded px-3 py-1.5 text-sm font-semibold transition ${
+                  locationTab === "add"
+                    ? "bg-neutral-900 text-white"
+                    : "border border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+                }`}
               >
-                {addingLocation ? "Saving..." : "Save location"}
+                Add new location
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocationTab("edit")}
+                className={`rounded px-3 py-1.5 text-sm font-semibold transition ${
+                  locationTab === "edit"
+                    ? "bg-neutral-900 text-white"
+                    : "border border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+                }`}
+              >
+                Edit locations
               </button>
             </div>
+
+            {locationTab === "add" ? (
+              <>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral-800">Location name</label>
+                    <input
+                      value={newLocationName}
+                      onChange={(e) => setNewLocationName(e.target.value)}
+                      placeholder="Location name"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral-800">Notes (optional)</label>
+                    <input
+                      value={newLocationNotes}
+                      onChange={(e) => setNewLocationNotes(e.target.value)}
+                      placeholder="Notes (optional)"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Address</label>
+                  <input
+                    value={newLocationAddress1}
+                    onChange={(e) => setNewLocationAddress1(e.target.value)}
+                    placeholder="Address line 1"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <input
+                    value={newLocationAddress2}
+                    onChange={(e) => setNewLocationAddress2(e.target.value)}
+                    placeholder="Address line 2"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={newLocationCity}
+                      onChange={(e) => setNewLocationCity(e.target.value)}
+                      placeholder="City"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={newLocationProvince}
+                      onChange={(e) => setNewLocationProvince(e.target.value)}
+                      placeholder="Province/State"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={newLocationPostal}
+                      onChange={(e) => setNewLocationPostal(e.target.value)}
+                      placeholder="Postal/Zip"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={newLocationCountry}
+                      onChange={(e) => setNewLocationCountry(e.target.value)}
+                      placeholder="Country"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Contact</label>
+                  <input
+                    value={newLocationContactName}
+                    onChange={(e) => setNewLocationContactName(e.target.value)}
+                    placeholder="Contact name"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={newLocationContactPhone}
+                      onChange={(e) => setNewLocationContactPhone(e.target.value)}
+                      placeholder="Contact phone"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={newLocationContactEmail}
+                      onChange={(e) => setNewLocationContactEmail(e.target.value)}
+                      placeholder="Contact email"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Commission %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={newLocationCommissionRate}
+                    onChange={(e) => setNewLocationCommissionRate(e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    placeholder="e.g. 20"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleAddLocation}
+                    disabled={addingLocation}
+                    className="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
+                  >
+                    {addingLocation ? "Saving..." : "Save location"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Select location</label>
+                  <select
+                    value={editLocationId || ""}
+                    onChange={(e) => setEditLocationId(e.target.value || null)}
+                    className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  >
+                    <option value="">Select a location</option>
+                    {locationOptions.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral-800">Location name</label>
+                    <input
+                      value={editLocationName}
+                      onChange={(e) => setEditLocationName(e.target.value)}
+                      placeholder="Location name"
+                      disabled={editLocationName.trim().toLowerCase() === "online shop"}
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral-800">Notes (optional)</label>
+                    <input
+                      value={editLocationNotes}
+                      onChange={(e) => setEditLocationNotes(e.target.value)}
+                      placeholder="Notes (optional)"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Address</label>
+                  <input
+                    value={editLocationAddress1}
+                    onChange={(e) => setEditLocationAddress1(e.target.value)}
+                    placeholder="Address line 1"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <input
+                    value={editLocationAddress2}
+                    onChange={(e) => setEditLocationAddress2(e.target.value)}
+                    placeholder="Address line 2"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={editLocationCity}
+                      onChange={(e) => setEditLocationCity(e.target.value)}
+                      placeholder="City"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={editLocationProvince}
+                      onChange={(e) => setEditLocationProvince(e.target.value)}
+                      placeholder="Province/State"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={editLocationPostal}
+                      onChange={(e) => setEditLocationPostal(e.target.value)}
+                      placeholder="Postal/Zip"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={editLocationCountry}
+                      onChange={(e) => setEditLocationCountry(e.target.value)}
+                      placeholder="Country"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Contact</label>
+                  <input
+                    value={editLocationContactName}
+                    onChange={(e) => setEditLocationContactName(e.target.value)}
+                    placeholder="Contact name"
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input
+                      value={editLocationContactPhone}
+                      onChange={(e) => setEditLocationContactPhone(e.target.value)}
+                      placeholder="Contact phone"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                    <input
+                      value={editLocationContactEmail}
+                      onChange={(e) => setEditLocationContactEmail(e.target.value)}
+                      placeholder="Contact email"
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-neutral-800">Commission %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editLocationCommissionRate}
+                    onChange={(e) => setEditLocationCommissionRate(e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    placeholder="e.g. 20"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleUpdateLocation}
+                    disabled={updatingLocation || !editLocationId}
+                    className="rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
+                  >
+                    {updatingLocation ? "Saving..." : "Save changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteLocation}
+                    disabled={
+                      deletingLocation ||
+                      !editLocationId ||
+                      editLocationName.trim().toLowerCase() === "online shop"
+                    }
+                    className="rounded border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                  >
+                    {deletingLocation ? "Removing..." : "Delete location"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : null}
       </div>
@@ -997,16 +1268,19 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     const alreadyHas = painting.location_id
                       ? locationOptions.some((loc) => idToString(loc.id) === idToString(painting.location_id))
                       : false;
+                    const filteredLocations = locationOptions.filter(
+                      (loc) => loc.name.trim().toLowerCase() !== "online shop"
+                    );
                     const options =
                       alreadyHas || !painting.location_id
-                        ? locationOptions
+                        ? filteredLocations
                         : [
                             {
                               id: painting.location_id,
                               name: painting.location_name || "Unknown location",
                               notes: null,
                             },
-                            ...locationOptions,
+                            ...filteredLocations,
                           ];
                     return (
                     <select
