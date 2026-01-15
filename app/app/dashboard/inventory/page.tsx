@@ -147,12 +147,12 @@ async function getInventory(userId: string): Promise<InventoryPainting[]> {
 }
 
 async function getLocations(): Promise<LocationOption[]> {
-  const { rows } = await sql`
+  const { rows } = await sql<LocationOption>`
     SELECT id, name
     FROM locations
     ORDER BY name ASC;
   `;
-  return rows.map((row: { id: string; name: string }) => ({
+  return rows.map((row) => ({
     id: String(row.id),
     name: row.name,
   }));
