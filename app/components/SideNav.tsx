@@ -152,12 +152,6 @@ export function SideNav() {
 
     return (
       <>
-        <Link href="/about" className="block transition hover:text-neutral-600">
-          About
-        </Link>
-        <Link href="/cv" className="block transition hover:text-neutral-600">
-          CV
-        </Link>
         <Link
           href="/gallery"
           className="block transition hover:text-neutral-600"
@@ -169,6 +163,12 @@ export function SideNav() {
           className="block transition hover:text-neutral-600"
         >
           Prints
+        </Link>
+        <Link href="/about" className="block transition hover:text-neutral-600">
+          About
+        </Link>
+        <Link href="/cv" className="block transition hover:text-neutral-600">
+          CV
         </Link>
         <Link
           href="/contact"

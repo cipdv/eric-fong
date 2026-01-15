@@ -36,6 +36,7 @@ function loadCart(): CartItem[] {
 function saveCart(items: CartItem[]) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("cartItems", JSON.stringify(items));
+  window.dispatchEvent(new Event("cart:updated"));
 }
 
 export default function CartPage() {
@@ -54,7 +55,11 @@ export default function CartPage() {
   }, []);
 
   const cartIdsKey = useMemo(
-    () => cartItems.map((i) => i.printId).sort().join("|"),
+    () =>
+      cartItems
+        .map((i) => i.printId)
+        .sort()
+        .join("|"),
     [cartItems]
   );
 
@@ -109,7 +114,16 @@ export default function CartPage() {
     const next = cartItems
       .map((item) =>
         item.printId === printId
-          ? { ...item, quantity: Math.max(1, Math.floor(quantity) || 1) }
+          ? {
+              ...item,
+              quantity: (() => {
+                const nextQty = Math.max(1, Math.floor(quantity) || 1);
+                const available =
+                  prints.find((print) => print.id === printId)?.quantity ??
+                  nextQty;
+                return Math.min(nextQty, Math.max(1, available));
+              })(),
+            }
           : item
       )
       .filter((i) => i.quantity > 0);
@@ -121,6 +135,12 @@ export default function CartPage() {
     const next = cartItems.filter((i) => i.printId !== printId);
     setCartItems(next);
     saveCart(next);
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+    saveCart([]);
+    setPrints([]);
   };
 
   const handleCheckout = async () => {
@@ -156,7 +176,9 @@ export default function CartPage() {
   return (
     <div className="space-y-6 pb-12">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold text-neutral-900">Your order</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900">
+          Review your order
+        </h1>
       </div>
 
       {loading ? (
@@ -168,10 +190,10 @@ export default function CartPage() {
           </p>
           <button
             type="button"
-            onClick={() => router.push("/gallery")}
+            onClick={() => router.push("/prints")}
             className="inline-flex items-center rounded bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
           >
-            Back to gallery
+            Back to prints
           </button>
         </div>
       ) : (
@@ -214,7 +236,9 @@ export default function CartPage() {
                   <div className="flex items-center rounded border border-neutral-300 bg-white">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.printId, item.quantity - 1)}
+                      onClick={() =>
+                        updateQuantity(item.printId, item.quantity - 1)
+                      }
                       className="px-2 py-1 text-neutral-700 transition hover:bg-neutral-100"
                       aria-label="Decrease quantity"
                     >
@@ -226,13 +250,18 @@ export default function CartPage() {
                       min={1}
                       value={item.quantity}
                       onChange={(e) =>
-                        updateQuantity(item.printId, Number(e.target.value) || 1)
+                        updateQuantity(
+                          item.printId,
+                          Number(e.target.value) || 1
+                        )
                       }
                       className="w-16 border-x border-neutral-200 px-2 py-1 text-center text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
                     />
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.printId, item.quantity + 1)}
+                      onClick={() =>
+                        updateQuantity(item.printId, item.quantity + 1)
+                      }
                       className="px-2 py-1 text-neutral-700 transition hover:bg-neutral-100"
                       aria-label="Increase quantity"
                     >
@@ -245,6 +274,8 @@ export default function CartPage() {
                       ? Number(item.print.price).toLocaleString("en-CA")
                       : "0"}
                   </span>
+                </div>
+                <div className="flex sm:items-center sm:justify-end">
                   <button
                     type="button"
                     onClick={() => removeItem(item.printId)}
@@ -267,10 +298,17 @@ export default function CartPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"
-                onClick={() => router.push("/gallery")}
+                onClick={() => router.push("/prints")}
                 className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100"
               >
                 Continue shopping
+              </button>
+              <button
+                type="button"
+                onClick={clearCart}
+                className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100"
+              >
+                Clear cart
               </button>
               <button
                 type="button"

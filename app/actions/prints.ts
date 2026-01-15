@@ -45,12 +45,15 @@ export async function getPrintsBulkAction(ids: string[]) {
       prints.id,
       prints.size,
       prints.price,
-      prints.quantity,
+      COALESCE(SUM(CASE WHEN l.name = 'Online shop' THEN pls.quantity END), 0) AS quantity,
       paintings.title,
       paintings.image_url
     FROM prints
     LEFT JOIN paintings ON paintings.id = prints.painting_id
+    LEFT JOIN print_location_stock pls ON pls.print_id = prints.id
+    LEFT JOIN locations l ON l.id = pls.location_id
     WHERE prints.id = ANY(${idsParam}::uuid[])
+    GROUP BY prints.id, prints.size, prints.price, paintings.title, paintings.image_url
   `;
   return rows.map((row) => ({
     id: row.id,

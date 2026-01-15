@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { sql } from "@vercel/postgres";
-import PrintPurchaseForm from "@/app/components/PrintPurchaseForm";
+import PrintSizeSelector from "@/app/components/PrintSizeSelector";
+import PrintsCartBanner from "@/app/components/PrintsCartBanner";
 import ScrollToPainting from "./ScrollToPainting";
 
 type Print = {
@@ -30,7 +31,7 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
     print_id: string | null;
     print_size: string | null;
     print_price: string | null;
-    print_quantity: number | null;
+    print_online_quantity: number | null;
   }>`
     SELECT
       p.id AS painting_id,
@@ -41,9 +42,20 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
       pr.id AS print_id,
       pr.size AS print_size,
       pr.price AS print_price,
-      pr.quantity AS print_quantity
+      COALESCE(SUM(CASE WHEN l.name = 'Online shop' THEN pls.quantity END), 0) AS print_online_quantity
     FROM paintings p
     LEFT JOIN prints pr ON pr.painting_id = p.id
+    LEFT JOIN print_location_stock pls ON pls.print_id = pr.id
+    LEFT JOIN locations l ON l.id = pls.location_id
+    GROUP BY
+      p.id,
+      p.title,
+      p.image_url,
+      p.details,
+      p.prints_available,
+      pr.id,
+      pr.size,
+      pr.price
     ORDER BY p.created_at DESC NULLS LAST, p.title ASC, pr.created_at ASC NULLS LAST;
   `;
 
@@ -67,12 +79,19 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
         id: row.print_id,
         size: row.print_size,
         price: Number(row.print_price ?? 0),
-        quantity: Number(row.print_quantity ?? 0),
+        quantity: Number(row.print_online_quantity ?? 0),
       });
     }
   }
 
-  return Array.from(byId.values());
+  const paintings = Array.from(byId.values());
+  paintings.sort((a, b) => {
+    const aHasStock = a.prints.some((print) => print.quantity > 0);
+    const bHasStock = b.prints.some((print) => print.quantity > 0);
+    if (aHasStock === bHasStock) return 0;
+    return aHasStock ? -1 : 1;
+  });
+  return paintings;
 }
 
 type PrintsPageProps = {
@@ -88,6 +107,14 @@ export default async function PrintsPage({ searchParams }: PrintsPageProps) {
       ? resolved.paintingId
       : undefined;
   const paintings = await getPaintingsWithPrints();
+  const cartCatalog = paintings.flatMap((painting) =>
+    painting.prints.map((print) => ({
+      printId: print.id,
+      paintingTitle: painting.title || "Untitled",
+      size: print.size || "Size coming soon",
+      price: Number(print.price ?? 0),
+    }))
+  );
 
   if (!paintings.length) {
     return (
@@ -100,21 +127,19 @@ export default async function PrintsPage({ searchParams }: PrintsPageProps) {
 
   return (
     <div className="space-y-8 pb-12">
+      <PrintsCartBanner catalog={cartCatalog} />
       <ScrollToPainting targetId={targetPaintingId} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold text-neutral-900">Prints</h1>
         </div>
-        <Link
-          href="/checkout/cart"
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-100"
-        >
-          View order
-        </Link>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {paintings.map((painting, idx) => (
+        {paintings.map((painting, idx) => {
+          const isTarget = targetPaintingId === painting.id;
+          const shouldPrioritize = isTarget || (!targetPaintingId && idx < 2);
+          return (
           <article
             key={painting.id}
             id={`painting-${painting.id}`}
@@ -127,7 +152,7 @@ export default async function PrintsPage({ searchParams }: PrintsPageProps) {
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
                 className="object-contain"
-                priority={idx < 2}
+                priority={shouldPrioritize}
               />
             </div>
 
@@ -136,42 +161,9 @@ export default async function PrintsPage({ searchParams }: PrintsPageProps) {
                 {painting.title || "Untitled"}
               </h2>
 
-              <div className="mt-auto space-y-2">
+              <div className="mt-3 space-y-2">
                 {painting.prints.length ? (
-                  painting.prints.map((print) => {
-                    const soldOut = print.quantity < 1;
-                    return (
-                      <div
-                        key={print.id}
-                        className="space-y-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="text-sm font-semibold text-neutral-900">
-                              {print.size || "Size coming soon"}
-                            </div>
-                            <div className="text-sm text-neutral-700">
-                              $
-                              {Number(print.price ?? 0).toLocaleString("en-CA")}
-                            </div>
-                          </div>
-                          <span
-                            className={`text-xs font-semibold ${
-                              soldOut ? "text-red-600" : "text-green-700"
-                            }`}
-                          >
-                            {soldOut
-                              ? "Sold out"
-                              : `${print.quantity} available`}
-                          </span>
-                        </div>
-                        <PrintPurchaseForm
-                          printId={print.id}
-                          available={Math.max(0, print.quantity)}
-                        />
-                      </div>
-                    );
-                  })
+                  <PrintSizeSelector prints={painting.prints} />
                 ) : (
                   <p className="text-sm text-neutral-600">
                     {painting.prints_available
@@ -182,7 +174,8 @@ export default async function PrintsPage({ searchParams }: PrintsPageProps) {
               </div>
             </div>
           </article>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

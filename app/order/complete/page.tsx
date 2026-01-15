@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 type OrderResponse = {
   id: string;
   status: string;
@@ -92,13 +93,23 @@ export default function OrderCompletePage() {
   }
 
   return (
-    <div className="space-y-3 pb-12">
+    <div className="space-y-4 pb-12">
       <h1 className="text-2xl font-semibold text-neutral-900">Order confirmed</h1>
-      <p className="text-sm text-neutral-700">Order ID: {order.id}</p>
-      <p className="text-sm text-neutral-700">Status: {order.status}</p>
-      <p className="text-sm text-neutral-700">
-        Total: ${order.totalAmount.toLocaleString("en-CA")} (HST: ${order.hstCollected.toLocaleString("en-CA")})
-      </p>
+      <div className="rounded border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">
+        <p>Thank you for your order. I'll contact you by email to arrange a delivery time.</p>
+        <p className="mt-2">-Eric</p>
+      </div>
+      <div className="space-y-1 rounded border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">
+        <div>Order ID: {order.id}</div>
+        <div>Status: {order.status}</div>
+        <div>Total: ${order.totalAmount.toLocaleString("en-CA")}</div>
+      </div>
+      <Link
+        href="/gallery"
+        className="inline-flex w-fit items-center rounded bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+      >
+        Back to gallery
+      </Link>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export async function sendContactMessage(
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
 
   if (!toAddress || !host || !user || !pass) {
     return {
@@ -45,7 +45,7 @@ export async function sendContactMessage(
     });
 
     await transporter.sendMail({
-      from: user,
+      from: toAddress,
       to: toAddress,
       replyTo: email,
       subject: `New contact from ${name}`,
