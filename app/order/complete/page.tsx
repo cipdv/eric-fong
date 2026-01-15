@@ -96,7 +96,7 @@ export default function OrderCompletePage() {
     <div className="space-y-4 pb-12">
       <h1 className="text-2xl font-semibold text-neutral-900">Order confirmed</h1>
       <div className="rounded border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">
-        <p>Thank you for your order. I'll contact you by email to arrange a delivery time.</p>
+        <p>Thank you for your order. I will contact you by email to arrange a delivery time.</p>
         <p className="mt-2">-Eric</p>
       </div>
       <div className="space-y-1 rounded border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">

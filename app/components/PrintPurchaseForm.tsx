@@ -39,20 +39,8 @@ function saveCart(items: CartItem[]) {
 
 export default function PrintPurchaseForm({ printId, available }: Props) {
   const [quantity, setQuantity] = useState(1);
-  const [existingQty, setExistingQty] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const initialCart = loadCart();
-    const initialFound = initialCart.find((i) => i.printId === printId);
-    if (!initialFound) {
-      setExistingQty(null);
-      return;
-    }
-    const nextQty = Math.max(1, initialFound.quantity);
-    setExistingQty(nextQty);
-  }, [printId]);
 
   const handleAddToCart = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,10 +56,8 @@ export default function PrintPurchaseForm({ printId, available }: Props) {
         Number(existing.quantity || 0) + addQuantity
       );
       current[existingIdx] = { printId, quantity: nextQuantity };
-      setExistingQty(nextQuantity);
     } else {
       current.push({ printId, quantity: addQuantity });
-      setExistingQty(addQuantity);
     }
     saveCart(current);
     setMessage("Added to order.");

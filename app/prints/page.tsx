@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { sql } from "@vercel/postgres";
 import PrintSizeSelector from "@/app/components/PrintSizeSelector";
 import PrintsCartBanner from "@/app/components/PrintsCartBanner";

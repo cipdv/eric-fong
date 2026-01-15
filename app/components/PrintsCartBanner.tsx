@@ -38,7 +38,6 @@ type Props = {
 };
 
 export default function PrintsCartBanner({ catalog }: Props) {
-  const [itemCount, setItemCount] = useState(0);
   const catalogMap = useMemo(() => {
     const map = new Map<string, CatalogItem>();
     catalog.forEach((item) => {
@@ -46,20 +45,15 @@ export default function PrintsCartBanner({ catalog }: Props) {
     });
     return map;
   }, [catalog]);
-  const [items, setItems] = useState<CartItem[]>([]);
-
-  const updateFromStorage = () => {
-    const nextItems = readCart();
-    const count = nextItems.reduce((sum, item) => sum + item.quantity, 0);
-    setItemCount(count);
-    setItems(nextItems);
-  };
+  const [items, setItems] = useState<CartItem[]>(() => readCart());
+  const itemCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
+  );
 
   useEffect(() => {
-    updateFromStorage();
-
     const handleCartUpdate = () => {
-      updateFromStorage();
+      setItems(readCart());
     };
 
     window.addEventListener("storage", handleCartUpdate);
@@ -67,10 +61,7 @@ export default function PrintsCartBanner({ catalog }: Props) {
 
     return () => {
       window.removeEventListener("storage", handleCartUpdate);
-      window.removeEventListener(
-        "cart:updated",
-        handleCartUpdate as EventListener
-      );
+      window.removeEventListener("cart:updated", handleCartUpdate as EventListener);
     };
   }, []);
 
