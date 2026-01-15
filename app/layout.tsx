@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   title: "Eric Fong",
   description: "Eric Fong",
   icons: {
-    icon: "/images/fong-icon.png",
+    icon: "/fong-icon.png",
   },
 };
 

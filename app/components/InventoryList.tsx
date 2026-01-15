@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addPrintInventoryAction,
@@ -129,6 +129,42 @@ function VariantCard({ print, locations }: VariantCardProps) {
       a.location_name.localeCompare(b.location_name)
     );
   }, [locations, print.location_stock]);
+  const availableLocationIds = useMemo(
+    () => locationRows.filter((row) => row.quantity > 0).map((row) => row.location_id),
+    [locationRows]
+  );
+
+  useEffect(() => {
+    if (!availableLocationIds.length) return;
+    const fallbackLocationId = availableLocationIds[0] || defaultLocationId;
+    const findCommission = (locationId: string) =>
+      locationRows.find((row) => row.location_id === locationId)?.commission_rate ?? 0;
+    setRemoveForm((prev) => {
+      const nextId =
+        prev.locationId &&
+        availableLocationIds.some((id) => id === prev.locationId)
+          ? prev.locationId
+          : fallbackLocationId;
+      if (nextId === prev.locationId) return prev;
+      return {
+        ...prev,
+        locationId: nextId,
+        commissionRate: String(findCommission(nextId) || 0),
+      };
+    });
+    setMoveForm((prev) => {
+      const nextFromId =
+        prev.fromLocationId &&
+        availableLocationIds.some((id) => id === prev.fromLocationId)
+          ? prev.fromLocationId
+          : fallbackLocationId;
+      if (nextFromId === prev.fromLocationId) return prev;
+      return {
+        ...prev,
+        fromLocationId: nextFromId,
+      };
+    });
+  }, [availableLocationIds, defaultLocationId, locationRows]);
   const getOverrideValue = (locationId: string) => {
     const current = print.location_stock.find(
       (loc) => loc.location_id === locationId

@@ -37,6 +37,7 @@ type Painting = {
   prints: Print[];
   is_home_image?: boolean;
   is_home_page?: boolean | null;
+  include_in_gallery?: boolean | null;
   status?: string;
   location_id?: string | null;
   location_name?: string | null;
@@ -78,6 +79,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
       p.created_at,
       p.status,
       p.is_home_image,
+      p.include_in_gallery,
       p.sale_order_id,
       p.location_id,
       to_char(p.location_start_date, 'YYYY-MM-DD') AS location_start_date,
@@ -189,6 +191,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
         price_original: row.price_original as string,
         prints: printList,
         is_home_image: (row.is_home_image ?? row.is_home_page) as boolean | undefined,
+        include_in_gallery: row.include_in_gallery as boolean | undefined,
         status: row.status as string | undefined,
         location_id: row.location_id ? String(row.location_id) : null,
         location_name: row.location_name as string | null,

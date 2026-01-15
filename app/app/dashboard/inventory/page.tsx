@@ -91,9 +91,10 @@ async function getInventory(userId: string): Promise<InventoryPainting[]> {
     Map<string, InventoryPainting["prints"][number]>
   >();
   for (const row of rows) {
-    if (!byPainting.has(row.painting_id)) {
-      byPainting.set(row.painting_id, {
-        id: row.painting_id,
+    const paintingId = String(row.painting_id);
+    if (!byPainting.has(paintingId)) {
+      byPainting.set(paintingId, {
+        id: paintingId,
         title: row.painting_title,
         status: row.painting_status,
         image_url: row.painting_image_url,
@@ -101,14 +102,15 @@ async function getInventory(userId: string): Promise<InventoryPainting[]> {
       });
     }
     if (!row.print_id) continue;
+    const printId = String(row.print_id);
 
-    if (!printMaps.has(row.painting_id)) {
-      printMaps.set(row.painting_id, new Map());
+    if (!printMaps.has(paintingId)) {
+      printMaps.set(paintingId, new Map());
     }
-    const paintingPrints = printMaps.get(row.painting_id)!;
-    if (!paintingPrints.has(row.print_id)) {
-      paintingPrints.set(row.print_id, {
-        id: row.print_id,
+    const paintingPrints = printMaps.get(paintingId)!;
+    if (!paintingPrints.has(printId)) {
+      paintingPrints.set(printId, {
+        id: printId,
         size: row.size || "",
         price: Number(row.price ?? 0),
         quantity: Number(row.quantity ?? 0),
@@ -116,8 +118,8 @@ async function getInventory(userId: string): Promise<InventoryPainting[]> {
       });
     }
     if (row.location_id) {
-      paintingPrints.get(row.print_id)!.location_stock.push({
-        location_id: row.location_id,
+      paintingPrints.get(printId)!.location_stock.push({
+        location_id: String(row.location_id),
         location_name: row.location_name,
         quantity: Number(row.location_quantity ?? 0),
         commission_rate:
@@ -150,7 +152,10 @@ async function getLocations(): Promise<LocationOption[]> {
     FROM locations
     ORDER BY name ASC;
   `;
-  return rows as LocationOption[];
+  return rows.map((row: { id: string; name: string }) => ({
+    id: String(row.id),
+    name: row.name,
+  }));
 }
 
 export default async function InventoryPage() {

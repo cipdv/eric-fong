@@ -19,13 +19,15 @@ type Painting = {
   price_original: string;
   status: string;
   prints_available: boolean;
+  include_in_gallery: boolean;
   prints: Print[];
 };
 
 async function getPaintings(): Promise<Painting[]> {
   const { rows } = await sql`
-    SELECT id, title, image_url, details, medium, size_original, price_original, status, prints_available
+    SELECT id, title, image_url, details, medium, size_original, price_original, status, prints_available, include_in_gallery
     FROM paintings
+    WHERE include_in_gallery IS TRUE
     ORDER BY created_at DESC NULLS LAST, title ASC;
   `;
 
@@ -52,6 +54,7 @@ async function getPaintings(): Promise<Painting[]> {
         price_original: row.price_original as string,
         status: row.status as string,
         prints_available: row.prints_available as boolean,
+        include_in_gallery: row.include_in_gallery as boolean,
         prints,
       };
     })

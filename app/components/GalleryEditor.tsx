@@ -35,6 +35,7 @@ type Painting = {
   prints: Print[];
   is_home_image?: boolean;
   is_home_page?: boolean | null;
+  include_in_gallery?: boolean | null;
   status?: string;
   sale_order_id?: string | null;
   location_id?: string | null;
@@ -244,7 +245,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const handleFieldChange = (
     paintingId: string,
     field: keyof Painting,
-    value: string
+    value: string | boolean | null
   ) => {
     setItems((prev) =>
       prev.map((p) => (p.id === paintingId ? { ...p, [field]: value } : p))
@@ -513,6 +514,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           size: pr.size,
         })),
         is_home_image: homeId === painting.id,
+        include_in_gallery: painting.include_in_gallery ?? true,
       });
       setMessage("Saved.");
       router.refresh();
@@ -546,6 +548,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           size: pr.size,
         })),
         is_home_image: homeId === painting.id,
+        include_in_gallery: painting.include_in_gallery ?? true,
       });
       setItems((prev) =>
         prev.map((item) =>
@@ -813,6 +816,24 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   onChange={() => handleSelectHome(painting.id)}
                 />
                 Set as homepage image
+              </label>
+              <label
+                className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
+                  isExpanded ? "flex" : "hidden"
+                } sm:flex`}
+              >
+                <input
+                  type="checkbox"
+                  checked={painting.include_in_gallery ?? true}
+                  onChange={(e) =>
+                    handleFieldChange(
+                      painting.id,
+                      "include_in_gallery",
+                      e.target.checked
+                    )
+                  }
+                />
+                Include in gallery?
               </label>
             </div>
 

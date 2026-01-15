@@ -188,6 +188,7 @@ export async function updatePaintingAction(input: {
   size_original: string;
   price_original: string;
   is_home_image: boolean;
+  include_in_gallery: boolean;
   location_id: string | null;
   location_start_date?: string | null;
   location_end_date?: string | null;
@@ -228,6 +229,7 @@ export async function updatePaintingAction(input: {
         size_original = ${input.size_original},
         price_original = ${input.price_original},
         is_home_image = ${input.is_home_image},
+        include_in_gallery = ${input.include_in_gallery},
         location_id = ${input.location_id},
         location_start_date = ${normalizeDate(input.location_start_date)},
         location_end_date = ${normalizeDate(input.location_end_date)},
