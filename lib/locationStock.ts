@@ -1,4 +1,5 @@
 import { sql } from "@vercel/postgres";
+import nodemailer from "nodemailer";
 
 export type LocationRecord = {
   id: string;
@@ -36,6 +37,7 @@ export async function adjustPrintStock({
   locationId: string;
 }> {
   const targetLocationId = locationId || (await ensureDefaultLocation());
+  let previousLocationQty = 0;
 
   if (locationId) {
     const { rowCount } = await sql`
@@ -47,6 +49,13 @@ export async function adjustPrintStock({
     if (!rowCount) {
       throw new Error("Location not found.");
     }
+    const { rows: prevRows } = await sql<{ quantity: number | null }>`
+      SELECT quantity
+      FROM print_location_stock
+      WHERE print_id = ${printId} AND location_id = ${locationId}
+      LIMIT 1;
+    `;
+    previousLocationQty = Number(prevRows[0]?.quantity ?? 0);
   }
 
   const { rows: availabilityRows } = await sql<{ total: string | null }>`
@@ -103,6 +112,91 @@ export async function adjustPrintStock({
     INSERT INTO print_location_events (print_id, from_location_id, to_location_id, delta, reason)
     VALUES (${printId}, ${delta < 0 ? targetLocationId : null}, ${delta > 0 ? targetLocationId : null}, ${delta}, ${reason});
   `;
+
+  if (delta > 0 && locationId && previousLocationQty === 0 && locationQuantity > 0) {
+    try {
+      const { rows: locationRows } = await sql<{ name: string | null }>`
+        SELECT name
+        FROM locations
+        WHERE id = ${targetLocationId}
+        LIMIT 1;
+      `;
+      const locationName = locationRows[0]?.name;
+      if (locationName === "Online shop") {
+        const { rows: notifyRows } = await sql<{
+          id: string;
+          email: string;
+          name: string | null;
+        }>`
+          SELECT id, email, name
+          FROM print_restock_requests
+          WHERE print_id = ${printId}
+            AND notified_at IS NULL;
+        `;
+        if (notifyRows.length) {
+          const toAddress = process.env.CONTACT_EMAIL_TO;
+          const host = process.env.SMTP_HOST;
+          const port = Number(process.env.SMTP_PORT || 587);
+          const user = process.env.SMTP_USER;
+          const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+          if (toAddress && host && user && pass) {
+            const { rows: printRows } = await sql<{
+              title: string | null;
+              size: string | null;
+            }>`
+              SELECT paintings.title, prints.size
+              FROM prints
+              LEFT JOIN paintings ON paintings.id = prints.painting_id
+              WHERE prints.id = ${printId}
+              LIMIT 1;
+            `;
+            const title = printRows[0]?.title || "Print";
+            const size = printRows[0]?.size ? ` (${printRows[0]?.size})` : "";
+            const baseEnv =
+              process.env.NEXT_PUBLIC_BASE_URL ||
+              process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+              process.env.VERCEL_URL;
+            const baseUrl = baseEnv
+              ? baseEnv.startsWith("http://") || baseEnv.startsWith("https://")
+                ? baseEnv
+                : `https://${baseEnv}`
+              : "http://localhost:3000";
+            const transporter = nodemailer.createTransport({
+              host,
+              port,
+              secure: port === 465,
+              auth: { user, pass },
+            });
+            for (const request of notifyRows) {
+              await transporter.sendMail({
+                from: toAddress,
+                to: request.email,
+                replyTo: toAddress,
+                subject: `${title}${size} is back in stock`,
+                text: [
+                  `Hi${request.name ? ` ${request.name}` : ""},`,
+                  "",
+                  `${title}${size} is back in stock in the online shop.`,
+                  "",
+                  `Shop prints: ${baseUrl}/prints`,
+                  "",
+                  "Thanks!",
+                ].join("\n"),
+              });
+            }
+            const idsParam = notifyRows.map((row) => row.id) as unknown as string;
+            await sql`
+              UPDATE print_restock_requests
+              SET notified_at = NOW()
+              WHERE id = ANY(${idsParam}::uuid[]);
+            `;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[locationStock] restock notification failed", err);
+    }
+  }
 
   return { totalQuantity, locationQuantity, locationId: targetLocationId };
 }

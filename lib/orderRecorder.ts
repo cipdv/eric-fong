@@ -2,6 +2,7 @@ import { sql } from "@vercel/postgres";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { adjustPrintStock } from "@/lib/locationStock";
+import nodemailer from "nodemailer";
 
 type RecordResult =
   | { ok: true; orderId: string }
@@ -40,6 +41,96 @@ function getPrintIdFromLineItem(item: Stripe.LineItem) {
       : undefined;
   const productDataMeta = price?.product_data?.metadata ?? undefined;
   return productMeta?.printId || productDataMeta?.printId || null;
+}
+
+async function sendOrderNotification(params: {
+  orderId: string;
+  items: { printId: string; quantity: number; unitPrice: number }[];
+  totalAmount: number;
+  customer: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    address1: string | null;
+    address2: string | null;
+    city: string | null;
+    province: string | null;
+    postal: string | null;
+    country: string | null;
+  };
+}) {
+  const toAddress = process.env.CONTACT_EMAIL_TO;
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+
+  if (!toAddress || !host || !user || !pass) {
+    return;
+  }
+
+  const idsParam = params.items.map((item) => item.printId) as unknown as string;
+  const { rows } = await sql<{
+    id: string;
+    size: string | null;
+    title: string | null;
+  }>`
+    SELECT prints.id, prints.size, paintings.title
+    FROM prints
+    LEFT JOIN paintings ON paintings.id = prints.painting_id
+    WHERE prints.id = ANY(${idsParam}::uuid[]);
+  `;
+  const printMap = new Map(rows.map((row) => [String(row.id), row]));
+
+  const itemLines = params.items.map((item) => {
+    const meta = printMap.get(item.printId);
+    const title = meta?.title || "Print";
+    const size = meta?.size ? ` (${meta.size})` : "";
+    return `${title}${size} x${item.quantity} @ $${item.unitPrice.toLocaleString("en-CA")}`;
+  });
+
+  const customerName = [params.customer.firstName, params.customer.lastName]
+    .filter(Boolean)
+    .join(" ");
+  const addressLines = [
+    params.customer.address1,
+    params.customer.address2,
+    [params.customer.city, params.customer.province].filter(Boolean).join(", "),
+    [params.customer.postal, params.customer.country].filter(Boolean).join(" "),
+  ]
+    .filter((line) => Boolean(line && line.trim()))
+    .join("\n");
+
+  const textBody = [
+    `New print order: ${params.orderId}`,
+    "",
+    "Customer",
+    `Name: ${customerName || "N/A"}`,
+    `Email: ${params.customer.email || "N/A"}`,
+    `Phone: ${params.customer.phone || "N/A"}`,
+    addressLines ? `Address:\n${addressLines}` : "Address: N/A",
+    "",
+    "Items",
+    ...itemLines,
+    "",
+    `Total: $${params.totalAmount.toLocaleString("en-CA")}`,
+  ].join("\n");
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  await transporter.sendMail({
+    from: toAddress,
+    to: toAddress,
+    replyTo: params.customer.email || undefined,
+    subject: `New print order ${params.orderId}`,
+    text: textBody,
+  });
 }
 
 export async function recordOrderFromSessionId(sessionId: string): Promise<RecordResult> {
@@ -261,6 +352,27 @@ export async function recordOrderFromSession(full: Stripe.Checkout.Session): Pro
 
     await sql`COMMIT`;
     console.log("[orderRecorder] order recorded", { orderId, paymentIntentId, items: parsedItems.length });
+    try {
+      await sendOrderNotification({
+        orderId,
+        items: parsedItems,
+        totalAmount: netTotal,
+        customer: {
+          firstName: customerFirstName,
+          lastName: customerLastName,
+          email: customerEmail,
+          phone: customerPhone,
+          address1: shipAddress1,
+          address2: shipAddress2,
+          city: shipCity,
+          province: shipProvince,
+          postal: shipPostal,
+          country: shipCountry,
+        },
+      });
+    } catch (err) {
+      console.error("[orderRecorder] email notification failed", err);
+    }
     return { ok: true, orderId };
   } catch (error) {
     try {

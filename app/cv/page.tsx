@@ -43,7 +43,6 @@ export default async function CvPage() {
   if (!entries.length) {
     return (
       <div className="space-y-3 pb-12">
-        <h1 className="text-2xl font-semibold text-neutral-900">CV</h1>
         <p className="text-sm text-neutral-600">No CV entries yet.</p>
       </div>
     );
@@ -64,19 +63,26 @@ export default async function CvPage() {
           <h2 className="text-lg font-semibold text-neutral-900">{section}</h2>
           <div className="space-y-3">
             {sectionEntries.map((entry) => (
-              <div key={entry.id} className="grid gap-2 sm:grid-cols-[140px_1fr]">
+              <div
+                key={entry.id}
+                className="grid gap-2 sm:grid-cols-[140px_1fr]"
+              >
                 <div className="text-sm font-semibold text-neutral-700">
                   {entry.entry_date || ""}
                 </div>
                 <div className="space-y-1 text-sm text-neutral-800">
-                  <div className="font-semibold text-neutral-900">{entry.title}</div>
+                  <div className="font-semibold text-neutral-900">
+                    {entry.title}
+                  </div>
                   {entry.venue || entry.location ? (
                     <div className="text-neutral-700">
                       {[entry.venue, entry.location].filter(Boolean).join(", ")}
                     </div>
                   ) : null}
                   {entry.details ? (
-                    <div className="whitespace-pre-line text-neutral-700">{entry.details}</div>
+                    <div className="whitespace-pre-line text-neutral-700">
+                      {entry.details}
+                    </div>
                   ) : null}
                 </div>
               </div>

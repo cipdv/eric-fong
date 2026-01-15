@@ -87,7 +87,10 @@ export default function PrintSizeSelector({ prints }: Props) {
       </div>
       {soldOut ? (
         <div className="space-y-2 text-xs text-neutral-700">
-          <Link href="/contact" className="text-sky-700 transition hover:text-sky-800">
+          <Link
+            href={`/notify?printId=${encodeURIComponent(selectedPrint.id)}`}
+            className="text-sky-700 transition hover:text-sky-800"
+          >
             Notify me when more become available
           </Link>
           {otherSizesAvailable ? (
