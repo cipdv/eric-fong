@@ -1,5 +1,5 @@
 import { sql } from "@vercel/postgres";
-import nodemailer from "nodemailer";
+import { createMailer, getMailerConfig } from "@/lib/mailer";
 
 export type LocationRecord = {
   id: string;
@@ -135,11 +135,8 @@ export async function adjustPrintStock({
         `;
         if (notifyRows.length) {
           const toAddress = process.env.CONTACT_EMAIL_TO;
-          const host = process.env.SMTP_HOST;
-          const port = Number(process.env.SMTP_PORT || 587);
-          const user = process.env.SMTP_USER;
-          const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
-          if (toAddress && host && user && pass) {
+          const mailerConfig = getMailerConfig();
+          if (toAddress && mailerConfig) {
             const { rows: printRows } = await sql<{
               title: string | null;
               size: string | null;
@@ -161,35 +158,29 @@ export async function adjustPrintStock({
                 ? baseEnv
                 : `https://${baseEnv}`
               : "http://localhost:3000";
-            const transporter = nodemailer.createTransport({
-              host,
-              port,
-              secure: port === 465,
-              auth: { user, pass },
-            });
-            for (const request of notifyRows) {
+            const transporter = createMailer();
+            if (transporter) {
+              for (const request of notifyRows) {
               await transporter.sendMail({
                 from: toAddress,
                 to: request.email,
                 replyTo: toAddress,
                 subject: `${title}${size} is back in stock`,
                 text: [
-                  `Hi${request.name ? ` ${request.name}` : ""},`,
-                  "",
-                  `${title}${size} is back in stock in the online shop.`,
-                  "",
-                  `Shop prints: ${baseUrl}/prints`,
-                  "",
-                  "Thanks!",
+                  `Hi${request.name ? ` ${request.name.split(" ")[0]}` : ""},`,
+                  `Good news, ${title}${size} is back in stock at ${baseUrl}/prints.`,
+                  "Order yours today.",
+                  "Thanks, -Eric",
                 ].join("\n"),
               });
+              }
+              const idsParam = notifyRows.map((row) => row.id) as unknown as string;
+              await sql`
+                UPDATE print_restock_requests
+                SET notified_at = NOW()
+                WHERE id = ANY(${idsParam}::uuid[]);
+              `;
             }
-            const idsParam = notifyRows.map((row) => row.id) as unknown as string;
-            await sql`
-              UPDATE print_restock_requests
-              SET notified_at = NOW()
-              WHERE id = ANY(${idsParam}::uuid[]);
-            `;
           }
         }
       }

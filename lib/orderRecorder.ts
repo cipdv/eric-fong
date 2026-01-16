@@ -2,7 +2,7 @@ import { sql } from "@vercel/postgres";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { adjustPrintStock } from "@/lib/locationStock";
-import nodemailer from "nodemailer";
+import { createMailer, getMailerConfig } from "@/lib/mailer";
 
 type RecordResult =
   | { ok: true; orderId: string }
@@ -85,12 +85,9 @@ async function sendOrderNotification(params: {
   };
 }) {
   const toAddress = process.env.CONTACT_EMAIL_TO;
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  const mailerConfig = getMailerConfig();
 
-  if (!toAddress || !host || !user || !pass) {
+  if (!toAddress || !mailerConfig) {
     return;
   }
 
@@ -127,32 +124,30 @@ async function sendOrderNotification(params: {
     .join("\n");
 
   const textBody = [
-    `New print order: ${params.orderId}`,
+    "New print order",
     "",
-    "Customer",
+    "**Customer**",
     `Name: ${customerName || "N/A"}`,
     `Email: ${params.customer.email || "N/A"}`,
     `Phone: ${params.customer.phone || "N/A"}`,
     addressLines ? `Address:\n${addressLines}` : "Address: N/A",
     "",
-    "Items",
+    "**Items**",
     ...itemLines,
     "",
-    `Total: $${params.totalAmount.toLocaleString("en-CA")}`,
+    `**Total: $${params.totalAmount.toLocaleString("en-CA")}**`,
   ].join("\n");
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  const transporter = createMailer();
+  if (!transporter) {
+    return;
+  }
 
   await transporter.sendMail({
     from: toAddress,
     to: toAddress,
     replyTo: params.customer.email || undefined,
-    subject: `New print order ${params.orderId}`,
+    subject: "New print order",
     text: textBody,
   });
 }

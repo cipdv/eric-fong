@@ -1,6 +1,6 @@
 "use server";
 
-import nodemailer from "nodemailer";
+import { createMailer, getMailerConfig } from "@/lib/mailer";
 
 export type ContactFormState = {
   status: "idle" | "success" | "error";
@@ -24,12 +24,9 @@ export async function sendContactMessage(
   }
 
   const toAddress = process.env.CONTACT_EMAIL_TO;
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  const mailerConfig = getMailerConfig();
 
-  if (!toAddress || !host || !user || !pass) {
+  if (!toAddress || !mailerConfig) {
     return {
       status: "error",
       message: "Email service is not configured.",
@@ -37,12 +34,13 @@ export async function sendContactMessage(
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
+    const transporter = createMailer();
+    if (!transporter) {
+      return {
+        status: "error",
+        message: "Email service is not configured.",
+      };
+    }
 
     await transporter.sendMail({
       from: toAddress,
@@ -60,7 +58,7 @@ export async function sendContactMessage(
 
     return {
       status: "success",
-      message: "Message sent. We'll be in touch soon.",
+      message: "Message sent. I'll be in touch soon.",
     };
   } catch (error) {
     console.error("[sendContactMessage] Failed to send message", error);
