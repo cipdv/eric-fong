@@ -30,6 +30,7 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
     print_id: string | null;
     print_size: string | null;
     print_price: string | null;
+    print_online_price: string | null;
     print_online_quantity: number | null;
   }>`
     SELECT
@@ -41,6 +42,10 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
       pr.id AS print_id,
       pr.size AS print_size,
       pr.price AS print_price,
+      COALESCE(
+        MAX(CASE WHEN l.name = 'Online shop' THEN pls.price_override END),
+        pr.price
+      ) AS print_online_price,
       COALESCE(SUM(CASE WHEN l.name = 'Online shop' THEN pls.quantity END), 0) AS print_online_quantity
     FROM paintings p
     LEFT JOIN prints pr ON pr.painting_id = p.id
@@ -77,7 +82,7 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
       painting.prints.push({
         id: row.print_id,
         size: row.print_size,
-        price: Number(row.print_price ?? 0),
+        price: Number(row.print_online_price ?? row.print_price ?? 0),
         quantity: Number(row.print_online_quantity ?? 0),
       });
     }
