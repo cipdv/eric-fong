@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     title: "Historical Paintings of Toronto | Chinatown & Kensington Market",
     description:
       "Historical paintings inspired by Toronto’s Chinatown and Kensington Market — street scenes, landmarks, and local culture.",
-    siteName: "Eric Fong",
+    siteName: "YOUR ARTIST NAME",
     locale: "en_CA",
     images: [
       {
