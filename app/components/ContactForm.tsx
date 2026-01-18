@@ -26,11 +26,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
   }, [state.status]);
 
   return (
-    <form
-      ref={formRef}
-      action={formAction}
-      className="space-y-4"
-    >
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm font-medium text-neutral-800">
           <span>Name</span>
@@ -71,7 +67,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
           rows={5}
           defaultValue={initialMessage}
           className="w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
-          placeholder="How can we help?"
+          // placeholder="How can we help?"
         />
       </label>
 

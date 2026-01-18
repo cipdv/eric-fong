@@ -57,7 +57,7 @@ export default async function CvPage() {
 
   return (
     <div className="space-y-8 pb-12">
-      <h1 className="text-2xl font-semibold text-neutral-900">CV</h1>
+      {/* <h1 className="text-2xl font-semibold text-neutral-900">CV</h1> */}
       {Object.entries(grouped).map(([section, sectionEntries]) => (
         <section key={section} className="space-y-3">
           <h2 className="text-lg font-semibold text-neutral-900">{section}</h2>
