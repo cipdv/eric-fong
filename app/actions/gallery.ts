@@ -636,7 +636,6 @@ export async function createPaintingAction(formData: FormData) {
 
   if (
     !title ||
-    !details ||
     !medium ||
     !sizeOriginalHeight ||
     !sizeOriginalWidth ||

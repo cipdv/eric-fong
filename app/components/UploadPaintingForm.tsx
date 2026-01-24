@@ -198,14 +198,13 @@ export default function UploadPaintingForm({ locations = [] }: Props) {
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-neutral-800">
-              Details
+              Details (optional)
             </label>
             <textarea
               className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
               rows={3}
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              required
             />
           </div>
 
