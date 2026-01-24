@@ -26,7 +26,7 @@ export function ProfileCard({
         </div>
       ) : null}
 
-      <div className="space-y-4 mt-10">
+      <div className="space-y-4 mt-4 lg:mt-0">
         <h1 className="text-xl font-semibold text-neutral-900">{name}</h1>
         <div className="space-y-2 text-base leading-7 text-neutral-800 whitespace-pre-line">
           {about || "More about this artist coming soon."}
