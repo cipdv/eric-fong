@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   adjustPrintInventoryAction,
@@ -334,25 +334,28 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     );
   };
 
-  const persistReorder = async (orderedIds: string[]) => {
-    if (reordering) return;
-    setReordering(true);
-    setMessage(null);
-    try {
-      await updateGalleryOrderAction({ orderedIds });
-      setMessage("Gallery order updated.");
-      setTimeout(() => setMessage(null), 2000);
-      router.refresh();
-    } catch (err) {
-      setMessage((err as Error).message);
-      setItems((prev) => {
-        const byId = new Map(prev.map((p) => [p.id, p]));
-        return initialOrder.current.map((id) => byId.get(id)!).filter(Boolean);
-      });
-    } finally {
-      setReordering(false);
-    }
-  };
+  const persistReorder = useCallback(
+    async (orderedIds: string[]) => {
+      if (reordering) return;
+      setReordering(true);
+      setMessage(null);
+      try {
+        await updateGalleryOrderAction({ orderedIds });
+        setMessage("Gallery order updated.");
+        setTimeout(() => setMessage(null), 2000);
+        router.refresh();
+      } catch (err) {
+        setMessage((err as Error).message);
+        setItems((prev) => {
+          const byId = new Map(prev.map((p) => [p.id, p]));
+          return initialOrder.current.map((id) => byId.get(id)!).filter(Boolean);
+        });
+      } finally {
+        setReordering(false);
+      }
+    },
+    [reordering, router]
+  );
 
   const handleAddLocation = async () => {
     const name = newLocationName.trim();
@@ -525,7 +528,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [draggingId]);
+  }, [draggingId, persistReorder]);
 
   const handleStatusChange = async (paintingId: string, nextStatus: string) => {
     const current = items.find((p) => p.id === paintingId);

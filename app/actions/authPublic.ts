@@ -6,10 +6,10 @@ import { sql } from "@vercel/postgres";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
-function hashPassword(password: string) {
-  // Simple hash for demo; replace with a stronger hash if available.
-  return crypto.createHash("sha256").update(password).digest("hex");
-}
+// function hashPassword(password: string) {
+//   // Simple hash for demo; replace with a stronger hash if available.
+//   return crypto.createHash("sha256").update(password).digest("hex");
+// }
 
 async function createSession(userId: string) {
   const token = crypto.randomUUID();
@@ -78,7 +78,7 @@ export async function registerAction(input: {
 
 export async function loginAction(input: { email: string; password: string }) {
   const email = input.email.trim().toLowerCase();
-  const password = input.password;
+  // const password = input.password;
   if (!email) throw new Error("Email is required.");
 
   const user = await fetchExistingUser(email);

@@ -397,15 +397,16 @@ export async function updateGalleryOrderAction(input: { orderedIds: string[] }) 
     throw new Error("No paintings provided.");
   }
 
+  const orderedJson = JSON.stringify(orderedIds);
   await sql`
+    WITH ordered AS (
+      SELECT value::uuid AS id, ord::int AS sort_order
+      FROM jsonb_array_elements_text(${orderedJson}::jsonb) WITH ORDINALITY AS t(value, ord)
+    )
     UPDATE paintings AS p
-    SET gallery_sort_order = v.sort_order
-    FROM (
-      SELECT
-        UNNEST(${orderedIds}::uuid[]) AS id,
-        GENERATE_SERIES(1, ${orderedIds.length}) AS sort_order
-    ) AS v
-    WHERE p.id = v.id
+    SET gallery_sort_order = ordered.sort_order
+    FROM ordered
+    WHERE p.id = ordered.id
       AND p.user_id = ${userId};
   `;
 
