@@ -182,7 +182,9 @@ export default function GalleryOrderGrid({ paintings }: Props) {
             {items.map((painting) => (
               <div
                 key={painting.id}
-                ref={(el) => itemRefs.current.set(painting.id, el)}
+                ref={(el) => {
+                  itemRefs.current.set(painting.id, el);
+                }}
                 data-painting-id={painting.id}
                 onPointerDown={(event) => {
                   if (
