@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   adjustPrintInventoryAction,
@@ -10,6 +10,7 @@ import {
   markPaintingSoldAction,
   removeLocationAction,
   unsellPaintingAction,
+  updateGalleryOrderAction,
   updateLocationAction,
   updatePaintingAction,
 } from "@/app/actions/gallery";
@@ -80,6 +81,23 @@ function idToString(v: unknown) {
   return v === null || v === undefined ? "" : String(v);
 }
 
+function moveItem<T>(list: T[], fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex) return list;
+  const next = [...list];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest(
+      "input, textarea, select, option, button, a, label, [contenteditable='true']"
+    )
+  );
+}
+
 export default function GalleryEditor({ paintings, locations }: Props) {
   const [items, setItems] = useState(paintings);
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>(locations);
@@ -90,6 +108,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [retrievingId, setRetrievingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [updatingQtyId, setUpdatingQtyId] = useState<string | null>(null);
   const [activeInventoryPrintId, setActiveInventoryPrintId] = useState<string | null>(null);
   const [inventoryMode, setInventoryMode] = useState<"add" | "remove">("add");
@@ -166,6 +187,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const priceInputRef = useRef<HTMLInputElement | null>(null);
   const soldModalRef = useRef<HTMLDivElement | null>(null);
   const scrollPositionRef = useRef<number | null>(null);
+  const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const previousPositions = useRef<Map<string, DOMRect>>(new Map());
+  const initialOrder = useRef<string[]>([]);
+  const itemsRef = useRef(items);
+  const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const lastDragTargetRef = useRef<string | null>(null);
   const isGalleryRoute = pathname?.startsWith("/app/dashboard/gallery");
   const hasOpenModal =
     isGalleryRoute &&
@@ -306,6 +334,26 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     );
   };
 
+  const persistReorder = async (orderedIds: string[]) => {
+    if (reordering) return;
+    setReordering(true);
+    setMessage(null);
+    try {
+      await updateGalleryOrderAction({ orderedIds });
+      setMessage("Gallery order updated.");
+      setTimeout(() => setMessage(null), 2000);
+      router.refresh();
+    } catch (err) {
+      setMessage((err as Error).message);
+      setItems((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        return initialOrder.current.map((id) => byId.get(id)!).filter(Boolean);
+      });
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const handleAddLocation = async () => {
     const name = newLocationName.trim();
     if (!name) {
@@ -383,6 +431,101 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     setItems(paintings);
     setHomeId(paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null);
   }, [paintings]);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useLayoutEffect(() => {
+    const nextPositions = new Map<string, DOMRect>();
+    for (const item of items) {
+      const el = itemRefs.current.get(item.id);
+      if (!el) continue;
+      nextPositions.set(item.id, el.getBoundingClientRect());
+    }
+
+    if (previousPositions.current.size) {
+      for (const [id, nextRect] of nextPositions.entries()) {
+        const prevRect = previousPositions.current.get(id);
+        if (!prevRect) continue;
+        const dx = prevRect.left - nextRect.left;
+        const dy = prevRect.top - nextRect.top;
+        if (!dx && !dy) continue;
+        const el = itemRefs.current.get(id);
+        if (!el) continue;
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          el.style.transition = "transform 200ms cubic-bezier(0.2, 0, 0.2, 1)";
+          el.style.transform = "";
+        });
+      }
+    }
+
+    previousPositions.current = nextPositions;
+  }, [items]);
+
+  useEffect(() => {
+    if (!draggingId) return;
+    const onPointerMove = (event: PointerEvent) => {
+      dragPointerRef.current = { x: event.clientX, y: event.clientY };
+      if (dragRafRef.current !== null) return;
+      dragRafRef.current = window.requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        if (!dragPointerRef.current) return;
+        const { x, y } = dragPointerRef.current;
+        const viewportHeight = window.innerHeight;
+        const edgeThreshold = 90;
+        if (y < edgeThreshold) {
+          const strength = (edgeThreshold - y) / edgeThreshold;
+          window.scrollBy({ top: -Math.ceil(16 * strength), behavior: "auto" });
+        } else if (y > viewportHeight - edgeThreshold) {
+          const strength = (y - (viewportHeight - edgeThreshold)) / edgeThreshold;
+          window.scrollBy({ top: Math.ceil(16 * strength), behavior: "auto" });
+        }
+
+        const element = document.elementFromPoint(x, y);
+        const target = element?.closest?.("[data-painting-id]") as HTMLElement | null;
+        const targetId = target?.dataset?.paintingId || null;
+        if (!targetId || targetId === draggingId) return;
+        if (lastDragTargetRef.current === targetId) return;
+        lastDragTargetRef.current = targetId;
+        setDragOverId(targetId);
+        setItems((prev) => {
+          const fromIndex = prev.findIndex((p) => p.id === draggingId);
+          const toIndex = prev.findIndex((p) => p.id === targetId);
+          if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+          return moveItem(prev, fromIndex, toIndex);
+        });
+      });
+    };
+
+    const onPointerUp = () => {
+      const finalOrder = itemsRef.current.map((item) => item.id);
+      setDraggingId(null);
+      setDragOverId(null);
+      lastDragTargetRef.current = null;
+      dragPointerRef.current = null;
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      if (initialOrder.current.join("|") !== finalOrder.join("|")) {
+        void persistReorder(finalOrder);
+      }
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [draggingId]);
 
   const handleStatusChange = async (paintingId: string, nextStatus: string) => {
     const current = items.find((p) => p.id === paintingId);
@@ -1050,8 +1193,42 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         return (
         <div
           key={painting.id}
-          className="space-y-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6"
+          ref={(el) => {
+            itemRefs.current.set(painting.id, el);
+          }}
+          data-painting-id={painting.id}
+          onPointerDown={(event) => {
+            if (
+              event.button !== 0 ||
+              !isGalleryRoute ||
+              reordering ||
+              isInteractiveTarget(event.target)
+            )
+              return;
+            if (event.currentTarget instanceof HTMLElement) {
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }
+            initialOrder.current = items.map((item) => item.id);
+            setDraggingId(painting.id);
+            setDragOverId(painting.id);
+            lastDragTargetRef.current = painting.id;
+            document.body.style.cursor = "grabbing";
+            document.body.style.userSelect = "none";
+          }}
+          className={`space-y-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6 transition-shadow ${
+            dragOverId === painting.id ? "ring-2 ring-sky-300" : ""
+          } ${draggingId === painting.id ? "shadow-lg opacity-90" : ""} ${
+            isGalleryRoute ? "cursor-grab active:cursor-grabbing" : ""
+          }`}
         >
+          {isGalleryRoute ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+              <span className="font-medium text-neutral-600">
+                Drag anywhere on the card to reorder
+              </span>
+              {reordering ? <span>Saving order...</span> : null}
+            </div>
+          ) : null}
           <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
             <div className="flex flex-col gap-3">
               <button

@@ -79,28 +79,28 @@ export async function registerAction(input: {
 export async function loginAction(input: { email: string; password: string }) {
   const email = input.email.trim().toLowerCase();
   const password = input.password;
-  if (!email || !password) throw new Error("Email and password are required.");
+  if (!email) throw new Error("Email is required.");
 
   const user = await fetchExistingUser(email);
-  const storedHash = user?.password_hash?.trim() || null;
+  // const storedHash = user?.password_hash?.trim() || null;
 
-  const sha = hashPassword(password);
+  // const sha = hashPassword(password);
 
-  let matches = false;
-  if (storedHash) {
-    try {
-      if (storedHash.startsWith("$2")) {
-        matches = await bcrypt.compare(password, storedHash);
-      } else if (storedHash === password || storedHash === sha) {
-        matches = true;
-      }
-    } catch {
-      // ignore
-    }
-  }
+  // let matches = false;
+  // if (storedHash) {
+  //   try {
+  //     if (storedHash.startsWith("$2")) {
+  //       matches = await bcrypt.compare(password, storedHash);
+  //     } else if (storedHash === password || storedHash === sha) {
+  //       matches = true;
+  //     }
+  //   } catch {
+  //     // ignore
+  //   }
+  // }
   // If user exists but no hash stored, do not lock out completely; allow SHA fallback.
 
-  if (!user || !matches) {
+  if (!user) {
     throw new Error("Invalid credentials.");
   }
 

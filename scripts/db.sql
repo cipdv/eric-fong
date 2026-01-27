@@ -26,6 +26,22 @@ ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id);
 
 CREATE INDEX IF NOT EXISTS idx_paintings_location ON paintings(location_id);
 
+-- Gallery ordering
+ALTER TABLE IF EXISTS paintings
+ADD COLUMN IF NOT EXISTS gallery_sort_order INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_paintings_gallery_sort ON paintings(user_id, gallery_sort_order);
+
+WITH ordered_paintings AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC NULLS LAST, title ASC) AS sort_order
+  FROM paintings
+)
+UPDATE paintings p
+SET gallery_sort_order = ordered_paintings.sort_order
+FROM ordered_paintings
+WHERE p.id = ordered_paintings.id
+  AND p.gallery_sort_order IS NULL;
+
 -- Per-location stock for each print
 CREATE TABLE IF NOT EXISTS print_location_stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

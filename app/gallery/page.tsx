@@ -28,7 +28,7 @@ async function getPaintings(): Promise<Painting[]> {
     SELECT id, title, image_url, details, medium, size_original, price_original, status, prints_available, include_in_gallery
     FROM paintings
     WHERE include_in_gallery IS TRUE
-    ORDER BY created_at DESC NULLS LAST, title ASC;
+    ORDER BY gallery_sort_order ASC NULLS LAST, created_at DESC NULLS LAST, title ASC;
   `;
 
   const paintings = await Promise.all(

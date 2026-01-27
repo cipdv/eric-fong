@@ -384,6 +384,36 @@ export async function updatePaintingAction(input: {
   return { ok: true };
 }
 
+export async function updateGalleryOrderAction(input: { orderedIds: string[] }) {
+  const userId = await getUserFromSession();
+  ensureAuth(userId);
+
+  const orderedIds = Array.isArray(input.orderedIds)
+    ? Array.from(
+        new Set(input.orderedIds.map((id) => id?.toString()).filter(Boolean))
+      )
+    : [];
+  if (!orderedIds.length) {
+    throw new Error("No paintings provided.");
+  }
+
+  await sql`
+    UPDATE paintings AS p
+    SET gallery_sort_order = v.sort_order
+    FROM (
+      SELECT
+        UNNEST(${orderedIds}::uuid[]) AS id,
+        GENERATE_SERIES(1, ${orderedIds.length}) AS sort_order
+    ) AS v
+    WHERE p.id = v.id
+      AND p.user_id = ${userId};
+  `;
+
+  revalidatePath("/gallery");
+  revalidatePath("/app/dashboard/gallery");
+  return { ok: true };
+}
+
 export async function deletePaintingAction(paintingId: string) {
   const userId = await getUserFromSession();
   ensureAuth(userId);
@@ -670,9 +700,25 @@ export async function createPaintingAction(formData: FormData) {
 
   const insertedPainting = await sql`
     INSERT INTO paintings
-      (user_id, title, image_url, details, medium, size_original, price_original, status, prints_available, location_id)
+      (user_id, title, image_url, details, medium, size_original, price_original, status, prints_available, location_id, gallery_sort_order)
     VALUES
-      (${userId}, ${title}, ${blob.url}, ${details}, ${medium}, ${`${sizeOriginalWidth} x ${sizeOriginalHeight} in`}, ${priceOriginal}, ${status || "available for sale"}, ${printsAvailable}, ${locationId})
+      (
+        ${userId},
+        ${title},
+        ${blob.url},
+        ${details},
+        ${medium},
+        ${`${sizeOriginalWidth} x ${sizeOriginalHeight} in`},
+        ${priceOriginal},
+        ${status || "available for sale"},
+        ${printsAvailable},
+        ${locationId},
+        (
+          SELECT COALESCE(MAX(gallery_sort_order), 0) + 1
+          FROM paintings
+          WHERE user_id = ${userId}
+        )
+      )
     RETURNING id;
   `;
 

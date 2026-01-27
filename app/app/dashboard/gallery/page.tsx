@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { sql } from "@vercel/postgres";
 import UploadPaintingForm from "@/app/components/UploadPaintingForm";
 import GalleryEditor from "@/app/components/GalleryEditor";
+import GalleryOrderGrid from "@/app/components/GalleryOrderGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,6 +47,7 @@ type Painting = {
   location_commission_rate?: string | null;
   sold_customer_name?: string | null;
   sold_price?: string | null;
+  gallery_sort_order?: number | null;
 };
 
 async function getCurrentUser() {
@@ -81,6 +83,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
       p.is_home_image,
       p.include_in_gallery,
       p.sale_order_id,
+      p.gallery_sort_order,
       p.location_id,
       to_char(p.location_start_date, 'YYYY-MM-DD') AS location_start_date,
       to_char(p.location_end_date, 'YYYY-MM-DD') AS location_end_date,
@@ -93,7 +96,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
     LEFT JOIN locations l ON l.id = p.location_id
     LEFT JOIN orders o ON o.id = p.sale_order_id
     WHERE p.user_id = ${userId}
-    ORDER BY p.created_at DESC;
+    ORDER BY p.gallery_sort_order ASC NULLS LAST, p.created_at DESC;
   `;
 
   const paintings = await Promise.all(
@@ -195,6 +198,10 @@ async function getPaintings(userId: string): Promise<Painting[]> {
         status: row.status as string | undefined,
         location_id: row.location_id ? String(row.location_id) : null,
         location_name: row.location_name as string | null,
+        gallery_sort_order:
+          row.gallery_sort_order !== null && row.gallery_sort_order !== undefined
+            ? Number(row.gallery_sort_order)
+            : null,
         location_start_date: row.location_start_date
           ? String(row.location_start_date)
           : null,
@@ -274,6 +281,16 @@ export default async function GalleryDashboardPage() {
       </h1>
       <div className="space-y-4">
         <UploadPaintingForm locations={locations} />
+      </div>
+
+      <div className="space-y-4">
+        <GalleryOrderGrid
+          paintings={paintings.map((painting) => ({
+            id: painting.id,
+            title: painting.title,
+            image_url: painting.image_url,
+          }))}
+        />
       </div>
 
       <div className="space-y-4">
