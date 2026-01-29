@@ -7,6 +7,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -120,7 +121,7 @@ function SortableTile({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    touchAction: "manipulation",
+    touchAction: "none",
   };
 
   return (
@@ -128,7 +129,10 @@ function SortableTile({
       type="button"
       ref={setNodeRef}
       style={style}
-      onClick={onClick}
+      onClick={() => {
+        if (isDragging) return;
+        onClick();
+      }}
       className={`group relative overflow-hidden rounded-lg border bg-white text-left shadow-sm ${
         isDragging ? "opacity-60" : ""
       } ${isSelected ? "ring-2 ring-sky-400" : "border-neutral-200"}`}
@@ -403,7 +407,10 @@ export default function GalleryEditor({ paintings, locations }: Props) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 3 },
+      activationConstraint: { distance: 6 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
     })
   );
 
