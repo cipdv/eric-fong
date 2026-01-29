@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { sql } from "@vercel/postgres";
 import UploadPaintingForm from "@/app/components/UploadPaintingForm";
 import GalleryEditor from "@/app/components/GalleryEditor";
-import GalleryOrderGrid from "@/app/components/GalleryOrderGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -281,16 +280,6 @@ export default async function GalleryDashboardPage() {
       </h1>
       <div className="space-y-4">
         <UploadPaintingForm locations={locations} />
-      </div>
-
-      <div className="space-y-4">
-        <GalleryOrderGrid
-          paintings={paintings.map((painting) => ({
-            id: painting.id,
-            title: painting.title,
-            image_url: painting.image_url,
-          }))}
-        />
       </div>
 
       <div className="space-y-4">

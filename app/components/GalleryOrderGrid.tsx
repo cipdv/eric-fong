@@ -39,7 +39,6 @@ export default function GalleryOrderGrid({ paintings }: Props) {
   const previousPositions = useRef<Map<string, DOMRect>>(new Map());
   const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
   const dragRafRef = useRef<number | null>(null);
-  const lastDragTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     setItems(paintings);
@@ -88,22 +87,88 @@ export default function GalleryOrderGrid({ paintings }: Props) {
         if (!dragPointerRef.current) return;
         const { x, y } = dragPointerRef.current;
 
-        const element = document.elementFromPoint(x, y);
-        const target = element?.closest?.(
-          "[data-painting-id]",
-        ) as HTMLElement | null;
-        const targetId = target?.dataset?.paintingId || null;
-        if (!targetId || targetId === draggingId) return;
-        if (lastDragTargetRef.current === targetId) return;
-        lastDragTargetRef.current = targetId;
-        setDragOverId(targetId);
-        setItems((prev) => {
-          const fromIndex = prev.findIndex((p) => p.id === draggingId);
-          const toIndex = prev.findIndex((p) => p.id === targetId);
-          if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex)
-            return prev;
-          return moveItem(prev, fromIndex, toIndex);
-        });
+        const viewportHeight = window.innerHeight;
+        const edgeThreshold = 80;
+        if (y < edgeThreshold) {
+          const strength = (edgeThreshold - y) / edgeThreshold;
+          window.scrollBy({ top: -Math.ceil(14 * strength), behavior: "auto" });
+        } else if (y > viewportHeight - edgeThreshold) {
+          const strength = (y - (viewportHeight - edgeThreshold)) / edgeThreshold;
+          window.scrollBy({ top: Math.ceil(14 * strength), behavior: "auto" });
+        }
+
+        const slots = itemsRef.current
+          .map((item) => {
+            const el = itemRefs.current.get(item.id);
+            if (!el) return null;
+            return { id: item.id, rect: el.getBoundingClientRect() };
+          })
+          .filter(Boolean) as { id: string; rect: DOMRect }[];
+
+        slots.sort((a, b) =>
+          a.rect.top === b.rect.top
+            ? a.rect.left - b.rect.left
+            : a.rect.top - b.rect.top
+        );
+
+        const currentIndex = itemsRef.current.findIndex(
+          (item) => item.id === draggingId
+        );
+        if (currentIndex < 0) return;
+
+        let targetIndex = slots.findIndex(
+          (slot) =>
+            x >= slot.rect.left &&
+            x <= slot.rect.right &&
+            y >= slot.rect.top &&
+            y <= slot.rect.bottom
+        );
+
+        if (targetIndex < 0) {
+          let closest = Number.POSITIVE_INFINITY;
+          for (let i = 0; i < slots.length; i++) {
+            const rect = slots[i].rect;
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = dx * dx + dy * dy;
+            if (distance < closest) {
+              closest = distance;
+              targetIndex = i;
+            }
+          }
+        }
+
+        if (targetIndex < 0 || targetIndex === currentIndex) return;
+
+        const currentRect = slots[currentIndex]?.rect;
+        const targetRect = slots[targetIndex]?.rect;
+        if (!targetRect) return;
+
+        let axis: "x" | "y" = "x";
+        if (currentRect && Math.abs(targetRect.top - currentRect.top) > 6) {
+          axis = "y";
+        }
+
+        const movingForward = targetIndex > currentIndex;
+        const threshold = 0.25;
+        const meetsThreshold =
+          axis === "x"
+            ? movingForward
+              ? x >= targetRect.left + targetRect.width * threshold
+              : x <= targetRect.right - targetRect.width * threshold
+            : movingForward
+              ? y >= targetRect.top + targetRect.height * threshold
+              : y <= targetRect.bottom - targetRect.height * threshold;
+
+        if (!meetsThreshold) return;
+
+        const orderedIds = slots.map((slot) => slot.id);
+        const nextIds = moveItem(orderedIds, currentIndex, targetIndex);
+        const byId = new Map(itemsRef.current.map((item) => [item.id, item]));
+        setDragOverId(nextIds[targetIndex]);
+        setItems(nextIds.map((id) => byId.get(id)!).filter(Boolean));
       });
     };
 
@@ -111,7 +176,6 @@ export default function GalleryOrderGrid({ paintings }: Props) {
       const finalOrder = itemsRef.current.map((item) => item.id);
       setDraggingId(null);
       setDragOverId(null);
-      lastDragTargetRef.current = null;
       dragPointerRef.current = null;
       if (dragRafRef.current !== null) {
         cancelAnimationFrame(dragRafRef.current);
@@ -150,10 +214,11 @@ export default function GalleryOrderGrid({ paintings }: Props) {
 
   return (
     <div
-      className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm cursor-pointer"
+      className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm cursor-pointer focus:outline-none"
       role="button"
       tabIndex={0}
       aria-expanded={isOpen}
+      style={{ WebkitTapHighlightColor: "transparent" }}
       onClick={handleToggle}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -200,12 +265,16 @@ export default function GalleryOrderGrid({ paintings }: Props) {
                   initialOrder.current = items.map((item) => item.id);
                   setDraggingId(painting.id);
                   setDragOverId(painting.id);
-                  lastDragTargetRef.current = painting.id;
                   document.body.style.cursor = "grabbing";
                   document.body.style.userSelect = "none";
                 }}
                 onDragStart={(event) => event.preventDefault()}
-                className={`group relative overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm transition-shadow ${
+                style={{
+                  touchAction: "none",
+                  willChange: "transform",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+                className={`group relative overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm transition-shadow focus:outline-none ${
                   dragOverId === painting.id ? "ring-2 ring-sky-300" : ""
                 } ${draggingId === painting.id ? "shadow-lg opacity-90" : ""} ${
                   saving

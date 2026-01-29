@@ -1,8 +1,26 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { snapCenterToCursor, restrictToWindowEdges } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   adjustPrintInventoryAction,
   createLocation,
@@ -81,22 +99,57 @@ function idToString(v: unknown) {
   return v === null || v === undefined ? "" : String(v);
 }
 
-function moveItem<T>(list: T[], fromIndex: number, toIndex: number) {
-  if (fromIndex === toIndex) return list;
-  const next = [...list];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
-}
+function SortableTile({
+  id,
+  title,
+  imageUrl,
+  onClick,
+  disabled,
+  isSelected,
+}: {
+  id: string;
+  title: string;
+  imageUrl: string;
+  onClick: () => void;
+  disabled?: boolean;
+  isSelected?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled });
 
-function isInteractiveTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(
-    target.closest(
-      "input, textarea, select, option, button, a, label, [contenteditable='true']"
-    )
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    touchAction: "manipulation",
+  };
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      style={style}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-lg border bg-white text-left shadow-sm ${
+        isDragging ? "opacity-60" : ""
+      } ${isSelected ? "ring-2 ring-sky-400" : "border-neutral-200"}`}
+      {...attributes}
+      {...listeners}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt={title || "Untitled"}
+        className="h-28 w-full object-cover sm:h-32 md:h-36"
+        loading="lazy"
+        draggable={false}
+      />
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 py-1 text-[11px] font-semibold text-white">
+        <span className="block truncate">{title || "Untitled"}</span>
+      </div>
+    </button>
   );
 }
+
 
 export default function GalleryEditor({ paintings, locations }: Props) {
   const [items, setItems] = useState(paintings);
@@ -108,9 +161,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [retrievingId, setRetrievingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [activePaintingId, setActivePaintingId] = useState<string | null>(null);
+  const [dragActiveId, setDragActiveId] = useState<string | null>(null);
   const [updatingQtyId, setUpdatingQtyId] = useState<string | null>(null);
   const [activeInventoryPrintId, setActiveInventoryPrintId] = useState<string | null>(null);
   const [inventoryMode, setInventoryMode] = useState<"add" | "remove">("add");
@@ -187,13 +240,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const priceInputRef = useRef<HTMLInputElement | null>(null);
   const soldModalRef = useRef<HTMLDivElement | null>(null);
   const scrollPositionRef = useRef<number | null>(null);
-  const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
-  const previousPositions = useRef<Map<string, DOMRect>>(new Map());
   const initialOrder = useRef<string[]>([]);
-  const itemsRef = useRef(items);
-  const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const dragRafRef = useRef<number | null>(null);
-  const lastDragTargetRef = useRef<string | null>(null);
   const isGalleryRoute = pathname?.startsWith("/app/dashboard/gallery");
   const hasOpenModal =
     isGalleryRoute &&
@@ -334,16 +381,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     );
   };
 
-  const persistReorder = useCallback(
+    const persistReorder = useCallback(
     async (orderedIds: string[]) => {
       if (reordering) return;
       setReordering(true);
       setMessage(null);
       try {
         await updateGalleryOrderAction({ orderedIds });
-        setMessage("Gallery order updated.");
-        setTimeout(() => setMessage(null), 2000);
-        router.refresh();
       } catch (err) {
         setMessage((err as Error).message);
         setItems((prev) => {
@@ -354,8 +398,38 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         setReordering(false);
       }
     },
-    [reordering, router]
+    [reordering]
   );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 3 },
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    initialOrder.current = items.map((item) => item.id);
+    setDragActiveId(activeId);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDragActiveId(null);
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    if (!overId || overId === activeId) return;
+
+    setItems((prev) => {
+      const oldIndex = prev.findIndex((p) => p.id === activeId);
+      const newIndex = prev.findIndex((p) => p.id === overId);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      const next = arrayMove(prev, oldIndex, newIndex);
+      queueMicrotask(() => {
+        void persistReorder(next.map((p) => p.id));
+      });
+      return next;
+    });
+  };
 
   const handleAddLocation = async () => {
     const name = newLocationName.trim();
@@ -435,100 +509,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     setHomeId(paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null);
   }, [paintings]);
 
-  useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
 
-  useLayoutEffect(() => {
-    const nextPositions = new Map<string, DOMRect>();
-    for (const item of items) {
-      const el = itemRefs.current.get(item.id);
-      if (!el) continue;
-      nextPositions.set(item.id, el.getBoundingClientRect());
-    }
 
-    if (previousPositions.current.size) {
-      for (const [id, nextRect] of nextPositions.entries()) {
-        const prevRect = previousPositions.current.get(id);
-        if (!prevRect) continue;
-        const dx = prevRect.left - nextRect.left;
-        const dy = prevRect.top - nextRect.top;
-        if (!dx && !dy) continue;
-        const el = itemRefs.current.get(id);
-        if (!el) continue;
-        el.style.transition = "none";
-        el.style.transform = `translate(${dx}px, ${dy}px)`;
-        requestAnimationFrame(() => {
-          el.style.transition = "transform 200ms cubic-bezier(0.2, 0, 0.2, 1)";
-          el.style.transform = "";
-        });
-      }
-    }
-
-    previousPositions.current = nextPositions;
-  }, [items]);
-
-  useEffect(() => {
-    if (!draggingId) return;
-    const onPointerMove = (event: PointerEvent) => {
-      dragPointerRef.current = { x: event.clientX, y: event.clientY };
-      if (dragRafRef.current !== null) return;
-      dragRafRef.current = window.requestAnimationFrame(() => {
-        dragRafRef.current = null;
-        if (!dragPointerRef.current) return;
-        const { x, y } = dragPointerRef.current;
-        const viewportHeight = window.innerHeight;
-        const edgeThreshold = 90;
-        if (y < edgeThreshold) {
-          const strength = (edgeThreshold - y) / edgeThreshold;
-          window.scrollBy({ top: -Math.ceil(16 * strength), behavior: "auto" });
-        } else if (y > viewportHeight - edgeThreshold) {
-          const strength = (y - (viewportHeight - edgeThreshold)) / edgeThreshold;
-          window.scrollBy({ top: Math.ceil(16 * strength), behavior: "auto" });
-        }
-
-        const element = document.elementFromPoint(x, y);
-        const target = element?.closest?.("[data-painting-id]") as HTMLElement | null;
-        const targetId = target?.dataset?.paintingId || null;
-        if (!targetId || targetId === draggingId) return;
-        if (lastDragTargetRef.current === targetId) return;
-        lastDragTargetRef.current = targetId;
-        setDragOverId(targetId);
-        setItems((prev) => {
-          const fromIndex = prev.findIndex((p) => p.id === draggingId);
-          const toIndex = prev.findIndex((p) => p.id === targetId);
-          if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
-          return moveItem(prev, fromIndex, toIndex);
-        });
-      });
-    };
-
-    const onPointerUp = () => {
-      const finalOrder = itemsRef.current.map((item) => item.id);
-      setDraggingId(null);
-      setDragOverId(null);
-      lastDragTargetRef.current = null;
-      dragPointerRef.current = null;
-      if (dragRafRef.current !== null) {
-        cancelAnimationFrame(dragRafRef.current);
-        dragRafRef.current = null;
-      }
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      if (initialOrder.current.join("|") !== finalOrder.join("|")) {
-        void persistReorder(finalOrder);
-      }
-    };
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerUp);
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
-    };
-  }, [draggingId, persistReorder]);
 
   const handleStatusChange = async (paintingId: string, nextStatus: string) => {
     const current = items.find((p) => p.id === paintingId);
@@ -866,8 +848,353 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     return value;
   };
 
+  const renderPaintingEditor = (painting: Painting) => {
+    const isExpanded = expandedPaintingId === painting.id;
+    const isSold = (painting.status || "").trim().toLowerCase() === "sold";
+    return (
+      <div className="space-y-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6">
+                          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+                  <div className="flex flex-col gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedPaintingId((prev) => (prev === painting.id ? null : painting.id))
+                      }
+                      aria-expanded={isExpanded}
+                      className="group relative overflow-hidden rounded border border-neutral-200 bg-neutral-50 text-left"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={painting.image_url}
+                        alt={painting.title}
+                        className="h-56 w-full object-cover sm:h-72 lg:h-[360px]"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 py-2 text-sm font-semibold text-white sm:hidden">
+                        <span className="truncate">{painting.title || "Untitled painting"}</span>
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] uppercase tracking-wide">
+                          {isExpanded ? "Hide" : "Edit"}
+                        </span>
+                      </div>
+                    </button>
+                    <label
+                      className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
+                        isExpanded ? "flex" : "hidden"
+                      } sm:flex`}
+                    >
+                      <input
+                        type="radio"
+                        name="home-image"
+                        checked={homeId === painting.id}
+                        onChange={() => handleSelectHome(painting.id)}
+                      />
+                      Set as homepage image
+                    </label>
+                    <label
+                      className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
+                        isExpanded ? "flex" : "hidden"
+                      } sm:flex`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={painting.include_in_gallery ?? true}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            painting.id,
+                            "include_in_gallery",
+                            e.target.checked
+                          )
+                        }
+                      />
+                      Include in gallery?
+                    </label>
+                  </div>
+
+                  <div className={`${isExpanded ? "block" : "hidden"} space-y-4 sm:block`}>
+                    <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
+                      <div className="text-sm font-semibold text-neutral-900">Original</div>
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-neutral-800">
+                            Title
+                          </label>
+                          <input
+                            value={painting.title}
+                            onChange={(e) =>
+                              handleFieldChange(painting.id, "title", e.target.value)
+                            }
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-neutral-800">
+                            Price
+                          </label>
+                          <input
+                            value={painting.price_original}
+                            onChange={(e) =>
+                              handleFieldChange(painting.id, "price_original", e.target.value)
+                            }
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          />
+                        </div>
+                      </div>
+                    <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-neutral-800">
+                          Details
+                        </label>
+                          <textarea
+                            value={painting.details || ""}
+                            onChange={(e) =>
+                              handleFieldChange(painting.id, "details", e.target.value)
+                            }
+                            rows={6}
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-neutral-800">
+                              Size (original)
+                            </label>
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                              <input
+                                value={stripInches(painting.size_original.split("x")[0]?.trim() || "")}
+                                onChange={(e) => {
+                                  const parts = painting.size_original
+                                    .split("x")
+                                    .map((p) => stripInches(p.trim()));
+                                  const height = parts[1] ?? "";
+                                  handleFieldChange(
+                                    painting.id,
+                                    "size_original",
+                                    `${stripInches(e.target.value)} x ${height}`
+                                  );
+                                }}
+                                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                                placeholder="Width"
+                                aria-label="Original width"
+                              />
+                              <span className="text-sm text-neutral-700">x</span>
+                              <input
+                                value={stripInches(painting.size_original.split("x")[1]?.trim() || "")}
+                                onChange={(e) => {
+                                  const parts = painting.size_original
+                                    .split("x")
+                                    .map((p) => stripInches(p.trim()));
+                                  const width = parts[0] ?? "";
+                                  handleFieldChange(
+                                    painting.id,
+                                    "size_original",
+                                    `${width} x ${stripInches(e.target.value)}`
+                                  );
+                                }}
+                                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                                placeholder="Height"
+                                aria-label="Original height"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-neutral-800">
+                              Medium
+                            </label>
+                            <input
+                              value={painting.medium}
+                              onChange={(e) =>
+                                handleFieldChange(painting.id, "medium", e.target.value)
+                              }
+                              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-sm font-medium text-neutral-800">
+                              Status
+                            </label>
+                            <select
+                              value={painting.status || ""}
+                              onChange={(e) =>
+                                handleStatusChange(painting.id, e.target.value)
+                              }
+                              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                            >
+                              <option value="available for sale">Available for sale</option>
+                              <option value="sold">Sold</option>
+                              <option value="not available for sale">Not available for sale</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`${isExpanded ? "block" : "hidden"} space-y-3 sm:block`}>
+                  {isSold ? (
+                    <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
+                      <div className="text-sm font-semibold text-neutral-900">
+                        Sold to {painting.sold_customer_name || "Unknown buyer"} for{" "}
+                        {formatMoney(painting.sold_price)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`space-y-3 rounded border p-4 ${
+                        isDateBeforeToday(painting.location_end_date)
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-neutral-200 bg-neutral-50"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-neutral-900">Location</div>
+                      {isDateBeforeToday(painting.location_end_date) && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-100 px-3 py-2 text-xs text-amber-900">
+                          <span>
+                            Location end date has passed. Mark this painting as retrieved.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleMarkRetrieved(painting.id)}
+                            disabled={retrievingId === painting.id}
+                            className="rounded border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-50 disabled:opacity-60"
+                          >
+                            {retrievingId === painting.id ? "Updating..." : "Retrieved"}
+                          </button>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-neutral-800">
+                          Location
+                        </label>
+                        {(() => {
+                          const alreadyHas = painting.location_id
+                            ? locationOptions.some((loc) => idToString(loc.id) === idToString(painting.location_id))
+                            : false;
+                          const filteredLocations = locationOptions.filter(
+                            (loc) => loc.name.trim().toLowerCase() !== "online shop"
+                          );
+                          const options =
+                            alreadyHas || !painting.location_id
+                              ? filteredLocations
+                              : [
+                                  {
+                                    id: painting.location_id,
+                                    name: painting.location_name || "Unknown location",
+                                    notes: null,
+                                  },
+                                  ...filteredLocations,
+                                ];
+                          return (
+                          <select
+                            value={idToString(painting.location_id)}
+                            onChange={(e) =>
+                              handleLocationChange(
+                                painting.id,
+                                e.target.value ? e.target.value : null
+                              )
+                            }
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          >
+                            <option value="">No location</option>
+                            {options.map((loc) => (
+                            <option key={idToString(loc.id)} value={idToString(loc.id)}>
+                              {loc.name}
+                            </option>
+                          ))}
+                          </select>
+                          );
+                        })()}
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-neutral-800">
+                            Location start date
+                          </label>
+                            <input
+                              type="date"
+                              value={normalizeDateInput(painting.location_start_date)}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                painting.id,
+                                "location_start_date",
+                                e.target.value
+                              )
+                            }
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-neutral-800">
+                            Location end date
+                          </label>
+                            <input
+                              type="date"
+                              value={normalizeDateInput(painting.location_end_date)}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                painting.id,
+                                "location_end_date",
+                                e.target.value
+                              )
+                            }
+                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-neutral-800">
+                          Commission %
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={painting.location_commission_rate || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              painting.id,
+                              "location_commission_rate",
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g. 30"
+                          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`${isExpanded ? "flex" : "hidden"} flex-wrap items-center gap-3 sm:flex`}>
+                  <button
+                    type="button"
+                    onClick={() => handleSave(painting)}
+                    disabled={savingId === painting.id}
+                    className="w-full rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60 sm:w-auto"
+                  >
+                    {savingId === painting.id ? "Saving..." : "Save changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(painting.id)}
+                    disabled={deletingId === painting.id}
+                    className="w-full rounded border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 sm:w-auto"
+                  >
+                    {deletingId === painting.id ? "Deleting..." : "Delete painting"}
+                  </button>
+                  {message && <span className="text-sm text-neutral-700">{message}</span>}
+                </div>
+              </div>
+    );
+  };
+
   const activeSoldPainting = activeSoldPaintingId
     ? items.find((p) => p.id === activeSoldPaintingId) || null
+    : null;
+  const selectedPainting = activePaintingId
+    ? items.find((p) => p.id === activePaintingId) || null
+    : null;
+  const dragOverlayPainting = dragActiveId
+    ? items.find((p) => p.id === dragActiveId) || null
     : null;
 
   return (
@@ -1187,384 +1514,68 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           </div>
         ) : null}
       </div>
-      {items.length === 0 && (
-        <p className="text-sm text-neutral-600">No paintings yet.</p>
-      )}
-      {items.map((painting) => {
-        const isExpanded = expandedPaintingId === painting.id;
-        const isSold = (painting.status || "").trim().toLowerCase() === "sold";
-        return (
-        <div
-          key={painting.id}
-          ref={(el) => {
-            itemRefs.current.set(painting.id, el);
-          }}
-          data-painting-id={painting.id}
-          onPointerDown={(event) => {
-            if (
-              event.button !== 0 ||
-              !isGalleryRoute ||
-              reordering ||
-              isInteractiveTarget(event.target)
-            )
-              return;
-            if (event.currentTarget instanceof HTMLElement) {
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }
-            initialOrder.current = items.map((item) => item.id);
-            setDraggingId(painting.id);
-            setDragOverId(painting.id);
-            lastDragTargetRef.current = painting.id;
-            document.body.style.cursor = "grabbing";
-            document.body.style.userSelect = "none";
-          }}
-          className={`space-y-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6 transition-shadow ${
-            dragOverId === painting.id ? "ring-2 ring-sky-300" : ""
-          } ${draggingId === painting.id ? "shadow-lg opacity-90" : ""} ${
-            isGalleryRoute ? "cursor-grab active:cursor-grabbing" : ""
-          }`}
-        >
-          {isGalleryRoute ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
-              <span className="font-medium text-neutral-600">
-                Drag anywhere on the card to reorder
-              </span>
-              {reordering ? <span>Saving order...</span> : null}
-            </div>
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-lg font-semibold text-neutral-900">Gallery order</div>
+          {reordering ? (
+            <div className="text-sm font-medium text-neutral-500">Saving...</div>
           ) : null}
-          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-            <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedPaintingId((prev) => (prev === painting.id ? null : painting.id))
-                }
-                aria-expanded={isExpanded}
-                className="group relative overflow-hidden rounded border border-neutral-200 bg-neutral-50 text-left"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={painting.image_url}
-                  alt={painting.title}
-                  className="h-56 w-full object-cover sm:h-72 lg:h-[360px]"
-                />
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 py-2 text-sm font-semibold text-white sm:hidden">
-                  <span className="truncate">{painting.title || "Untitled painting"}</span>
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] uppercase tracking-wide">
-                    {isExpanded ? "Hide" : "Edit"}
-                  </span>
-                </div>
-              </button>
-              <label
-                className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
-                  isExpanded ? "flex" : "hidden"
-                } sm:flex`}
-              >
-                <input
-                  type="radio"
-                  name="home-image"
-                  checked={homeId === painting.id}
-                  onChange={() => handleSelectHome(painting.id)}
-                />
-                Set as homepage image
-              </label>
-              <label
-                className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
-                  isExpanded ? "flex" : "hidden"
-                } sm:flex`}
-              >
-                <input
-                  type="checkbox"
-                  checked={painting.include_in_gallery ?? true}
-                  onChange={(e) =>
-                    handleFieldChange(
-                      painting.id,
-                      "include_in_gallery",
-                      e.target.checked
-                    )
-                  }
-                />
-                Include in gallery?
-              </label>
-            </div>
+        </div>
 
-            <div className={`${isExpanded ? "block" : "hidden"} space-y-4 sm:block`}>
-              <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
-                <div className="text-sm font-semibold text-neutral-900">Original</div>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-neutral-800">
-                      Title
-                    </label>
-                    <input
-                      value={painting.title}
-                      onChange={(e) =>
-                        handleFieldChange(painting.id, "title", e.target.value)
-                      }
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-neutral-800">
-                      Price
-                    </label>
-                    <input
-                      value={painting.price_original}
-                      onChange={(e) =>
-                        handleFieldChange(painting.id, "price_original", e.target.value)
-                      }
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                </div>
-              <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-neutral-800">
-                    Details
-                  </label>
-                    <textarea
-                      value={painting.details || ""}
-                      onChange={(e) =>
-                        handleFieldChange(painting.id, "details", e.target.value)
-                      }
-                      rows={6}
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-neutral-800">
-                        Size (original)
-                      </label>
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                        <input
-                          value={stripInches(painting.size_original.split("x")[0]?.trim() || "")}
-                          onChange={(e) => {
-                            const parts = painting.size_original
-                              .split("x")
-                              .map((p) => stripInches(p.trim()));
-                            const height = parts[1] ?? "";
-                            handleFieldChange(
-                              painting.id,
-                              "size_original",
-                              `${stripInches(e.target.value)} x ${height}`
-                            );
-                          }}
-                          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          placeholder="Width"
-                          aria-label="Original width"
-                        />
-                        <span className="text-sm text-neutral-700">x</span>
-                        <input
-                          value={stripInches(painting.size_original.split("x")[1]?.trim() || "")}
-                          onChange={(e) => {
-                            const parts = painting.size_original
-                              .split("x")
-                              .map((p) => stripInches(p.trim()));
-                            const width = parts[0] ?? "";
-                            handleFieldChange(
-                              painting.id,
-                              "size_original",
-                              `${width} x ${stripInches(e.target.value)}`
-                            );
-                          }}
-                          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          placeholder="Height"
-                          aria-label="Original height"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-neutral-800">
-                        Medium
-                      </label>
-                      <input
-                        value={painting.medium}
-                        onChange={(e) =>
-                          handleFieldChange(painting.id, "medium", e.target.value)
-                        }
-                        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-sm font-medium text-neutral-800">
-                        Status
-                      </label>
-                      <select
-                        value={painting.status || ""}
-                        onChange={(e) =>
-                          handleStatusChange(painting.id, e.target.value)
-                        }
-                        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                      >
-                        <option value="available for sale">Available for sale</option>
-                        <option value="sold">Sold</option>
-                        <option value="not available for sale">Not available for sale</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {message ? (
+          <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            {message}
           </div>
+        ) : null}
 
-          <div className={`${isExpanded ? "block" : "hidden"} space-y-3 sm:block`}>
-            {isSold ? (
-              <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
-                <div className="text-sm font-semibold text-neutral-900">
-                  Sold to {painting.sold_customer_name || "Unknown buyer"} for{" "}
-                  {formatMoney(painting.sold_price)}
-                </div>
+        {items.length === 0 ? (
+          <p className="mt-3 text-sm text-neutral-600">No paintings yet.</p>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[snapCenterToCursor, restrictToWindowEdges]}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setDragActiveId(null)}
+          >
+            <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {items.map((p) => (
+                  <SortableTile
+                    key={p.id}
+                    id={p.id}
+                    title={p.title}
+                    imageUrl={p.image_url}
+                    disabled={reordering}
+                    isSelected={activePaintingId === p.id}
+                    onClick={() => {
+                      setActivePaintingId(p.id);
+                      setExpandedPaintingId(p.id);
+                    }}
+                  />
+                ))}
               </div>
-            ) : (
-              <div
-                className={`space-y-3 rounded border p-4 ${
-                  isDateBeforeToday(painting.location_end_date)
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-neutral-200 bg-neutral-50"
-                }`}
-              >
-                <div className="text-sm font-semibold text-neutral-900">Location</div>
-                {isDateBeforeToday(painting.location_end_date) && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-100 px-3 py-2 text-xs text-amber-900">
-                    <span>
-                      Location end date has passed. Mark this painting as retrieved.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleMarkRetrieved(painting.id)}
-                      disabled={retrievingId === painting.id}
-                      className="rounded border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-50 disabled:opacity-60"
-                    >
-                      {retrievingId === painting.id ? "Updating..." : "Retrieved"}
-                    </button>
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-neutral-800">
-                    Location
-                  </label>
-                  {(() => {
-                    const alreadyHas = painting.location_id
-                      ? locationOptions.some((loc) => idToString(loc.id) === idToString(painting.location_id))
-                      : false;
-                    const filteredLocations = locationOptions.filter(
-                      (loc) => loc.name.trim().toLowerCase() !== "online shop"
-                    );
-                    const options =
-                      alreadyHas || !painting.location_id
-                        ? filteredLocations
-                        : [
-                            {
-                              id: painting.location_id,
-                              name: painting.location_name || "Unknown location",
-                              notes: null,
-                            },
-                            ...filteredLocations,
-                          ];
-                    return (
-                    <select
-                      value={idToString(painting.location_id)}
-                      onChange={(e) =>
-                        handleLocationChange(
-                          painting.id,
-                          e.target.value ? e.target.value : null
-                        )
-                      }
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    >
-                      <option value="">No location</option>
-                      {options.map((loc) => (
-                      <option key={idToString(loc.id)} value={idToString(loc.id)}>
-                        {loc.name}
-                      </option>
-                    ))}
-                    </select>
-                    );
-                  })()}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="block text-sm font-medium text-neutral-800">
-                      Location start date
-                    </label>
-                      <input
-                        type="date"
-                        value={normalizeDateInput(painting.location_start_date)}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          painting.id,
-                          "location_start_date",
-                          e.target.value
-                        )
-                      }
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-sm font-medium text-neutral-800">
-                      Location end date
-                    </label>
-                      <input
-                        type="date"
-                        value={normalizeDateInput(painting.location_end_date)}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          painting.id,
-                          "location_end_date",
-                          e.target.value
-                        )
-                      }
-                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-neutral-800">
-                    Commission %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={painting.location_commission_rate || ""}
-                    onChange={(e) =>
-                      handleFieldChange(
-                        painting.id,
-                        "location_commission_rate",
-                        e.target.value
-                      )
-                    }
-                    placeholder="e.g. 30"
-                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            </SortableContext>
+
+            <DragOverlay>
+              {dragOverlayPainting ? (
+                <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={dragOverlayPainting.image_url}
+                    alt={dragOverlayPainting.title || "Untitled"}
+                    className="h-28 w-36 object-cover sm:h-32 sm:w-44"
+                    draggable={false}
                   />
                 </div>
-              </div>
-            )}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
+      </div>
 
-          <div className={`${isExpanded ? "flex" : "hidden"} flex-wrap items-center gap-3 sm:flex`}>
-            <button
-              type="button"
-              onClick={() => handleSave(painting)}
-              disabled={savingId === painting.id}
-              className="w-full rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60 sm:w-auto"
-            >
-              {savingId === painting.id ? "Saving..." : "Save changes"}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDelete(painting.id)}
-              disabled={deletingId === painting.id}
-              className="w-full rounded border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 sm:w-auto"
-            >
-              {deletingId === painting.id ? "Deleting..." : "Delete painting"}
-            </button>
-            {message && <span className="text-sm text-neutral-700">{message}</span>}
-          </div>
-        </div>
-        );
-      })}
+      {selectedPainting ? renderPaintingEditor(selectedPainting) : null}
       {isGalleryRoute && activeInventoryPrintId &&
         createPortal(
           <div
