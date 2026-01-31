@@ -34,7 +34,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
             name="name"
             type="text"
             required
-            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
+            className="w-full border border-neutral-900 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
             placeholder="Your name"
           />
         </label>
@@ -44,7 +44,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
             name="email"
             type="email"
             required
-            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
+            className="w-full border border-neutral-900 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
             placeholder="you@example.com"
           />
         </label>
@@ -53,7 +53,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
           <input
             name="phone"
             type="tel"
-            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
+            className="w-full border border-neutral-900 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
             placeholder="Optional"
           />
         </label>
@@ -66,7 +66,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
           required
           rows={5}
           defaultValue={initialMessage}
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
+          className="w-full border border-neutral-900 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
           // placeholder="How can we help?"
         />
       </label>
@@ -75,7 +75,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center justify-center rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600"
+          className="inline-flex items-center justify-center border border-neutral-900 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-900 transition hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500"
         >
           {pending ? "Sending..." : "Send message"}
         </button>

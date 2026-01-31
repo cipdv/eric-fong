@@ -107,6 +107,12 @@ export function SideNav() {
             Manage gallery
           </Link>
           <Link
+            href="/app/dashboard/events"
+            className="block transition hover:text-neutral-600"
+          >
+            Update events
+          </Link>
+          <Link
             href="/app/dashboard/inventory"
             className="block transition hover:text-neutral-600"
           >

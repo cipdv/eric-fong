@@ -14,10 +14,12 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
   return (
     <div className="space-y-6 pb-12">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-neutral-900">Contact</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900">
+          Contact Eric Fong
+        </h1>
       </div>
 
-      <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="border border-neutral-900 bg-white p-4 shadow-sm sm:p-6">
         <ContactForm initialMessage={defaultMessage} />
       </div>
     </div>

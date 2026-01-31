@@ -115,8 +115,14 @@ function SortableTile({
   disabled?: boolean;
   isSelected?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id, disabled });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -154,12 +160,12 @@ function SortableTile({
   );
 }
 
-
 export default function GalleryEditor({ paintings, locations }: Props) {
   const [items, setItems] = useState(paintings);
-  const [locationOptions, setLocationOptions] = useState<LocationOption[]>(locations);
+  const [locationOptions, setLocationOptions] =
+    useState<LocationOption[]>(locations);
   const [homeId, setHomeId] = useState<string | null>(
-    paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null
+    paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null,
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [retrievingId, setRetrievingId] = useState<string | null>(null);
@@ -169,14 +175,18 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [activePaintingId, setActivePaintingId] = useState<string | null>(null);
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
   const [updatingQtyId, setUpdatingQtyId] = useState<string | null>(null);
-  const [activeInventoryPrintId, setActiveInventoryPrintId] = useState<string | null>(null);
+  const [activeInventoryPrintId, setActiveInventoryPrintId] = useState<
+    string | null
+  >(null);
   const [inventoryMode, setInventoryMode] = useState<"add" | "remove">("add");
   const [inventoryReason, setInventoryReason] = useState("manual_add");
   const [inventoryQty, setInventoryQty] = useState("");
   const [inventoryLocationId, setInventoryLocationId] = useState<string | null>(
-    locations[0]?.id ?? null
+    locations[0]?.id ?? null,
   );
-  const [activeSoldPaintingId, setActiveSoldPaintingId] = useState<string | null>(null);
+  const [activeSoldPaintingId, setActiveSoldPaintingId] = useState<
+    string | null
+  >(null);
   const [soldDetails, setSoldDetails] = useState<
     Record<
       string,
@@ -208,16 +218,19 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [newLocationContactName, setNewLocationContactName] = useState("");
   const [newLocationContactPhone, setNewLocationContactPhone] = useState("");
   const [newLocationContactEmail, setNewLocationContactEmail] = useState("");
-  const [newLocationCommissionRate, setNewLocationCommissionRate] = useState("");
+  const [newLocationCommissionRate, setNewLocationCommissionRate] =
+    useState("");
   const [addingLocation, setAddingLocation] = useState(false);
   const [updatingLocation, setUpdatingLocation] = useState(false);
   const [deletingLocation, setDeletingLocation] = useState(false);
   const [locationTab, setLocationTab] = useState<"add" | "edit">("add");
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState<string | null>(null);
-  const [expandedPaintingId, setExpandedPaintingId] = useState<string | null>(null);
+  const [expandedPaintingId, setExpandedPaintingId] = useState<string | null>(
+    null,
+  );
   const [editLocationId, setEditLocationId] = useState<string | null>(
-    locations[0]?.id ?? null
+    locations[0]?.id ?? null,
   );
   const [editLocationName, setEditLocationName] = useState("");
   const [editLocationNotes, setEditLocationNotes] = useState("");
@@ -230,10 +243,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [editLocationContactName, setEditLocationContactName] = useState("");
   const [editLocationContactPhone, setEditLocationContactPhone] = useState("");
   const [editLocationContactEmail, setEditLocationContactEmail] = useState("");
-  const [editLocationCommissionRate, setEditLocationCommissionRate] = useState("");
-  const toggleLocationCard = (
-    e: React.MouseEvent | React.KeyboardEvent
-  ) => {
+  const [editLocationCommissionRate, setEditLocationCommissionRate] =
+    useState("");
+  const toggleLocationCard = (e: React.MouseEvent | React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-stop-toggle="true"]')) return;
     setShowLocationForm((prev) => !prev);
@@ -254,9 +266,16 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     if (process.env.NODE_ENV === "production") return;
     const flagged = items
       .filter((p) => p.is_home_image || p.is_home_page)
-      .map((p) => ({ id: p.id, is_home_image: p.is_home_image, is_home_page: p.is_home_page }));
+      .map((p) => ({
+        id: p.id,
+        is_home_image: p.is_home_image,
+        is_home_page: p.is_home_page,
+      }));
     // Debug for homepage selection
-    console.log("[GalleryEditor] homeId", homeId, { items: items.length, flagged });
+    console.log("[GalleryEditor] homeId", homeId, {
+      items: items.length,
+      flagged,
+    });
     console.log("[GalleryEditor] first item sample", items[0]);
   }, [homeId, items]);
 
@@ -275,7 +294,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   useEffect(() => {
     if (!editLocationId) return;
     const selected = locationOptions.find(
-      (loc) => idToString(loc.id) === idToString(editLocationId)
+      (loc) => idToString(loc.id) === idToString(editLocationId),
     );
     if (!selected) return;
     setEditLocationName(selected.name ?? "");
@@ -290,9 +309,10 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     setEditLocationContactPhone(selected.contact_phone ?? "");
     setEditLocationContactEmail(selected.contact_email ?? "");
     setEditLocationCommissionRate(
-      selected.commission_rate !== null && selected.commission_rate !== undefined
+      selected.commission_rate !== null &&
+        selected.commission_rate !== undefined
         ? String(selected.commission_rate)
-        : ""
+        : "",
     );
   }, [editLocationId, locationOptions]);
 
@@ -320,7 +340,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     if (hasOpenModal) {
       document.body.style.overflow = "hidden";
       // Prevent layout shift when scrollbar disappears
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      const scrollBarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
       if (scrollBarWidth > 0) {
         document.body.style.paddingRight = `${scrollBarWidth}px`;
       }
@@ -338,7 +359,10 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     if (!activeSoldPaintingId) return;
     // Scroll the viewport to center the sold modal in view.
     window.requestAnimationFrame(() => {
-      soldModalRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      soldModalRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     });
   }, [activeSoldPaintingId]);
 
@@ -357,18 +381,24 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const handleFieldChange = (
     paintingId: string,
     field: keyof Painting,
-    value: string | boolean | null
+    value: string | boolean | null,
   ) => {
     setItems((prev) =>
-      prev.map((p) => (p.id === paintingId ? { ...p, [field]: value } : p))
+      prev.map((p) => (p.id === paintingId ? { ...p, [field]: value } : p)),
     );
   };
 
-  const handleLocationChange = (paintingId: string, locationId: string | null) => {
+  const handleLocationChange = (
+    paintingId: string,
+    locationId: string | null,
+  ) => {
     const selected =
-      locationOptions.find((loc) => idToString(loc.id) === idToString(locationId)) || null;
+      locationOptions.find(
+        (loc) => idToString(loc.id) === idToString(locationId),
+      ) || null;
     const commissionValue =
-      selected?.commission_rate === null || selected?.commission_rate === undefined
+      selected?.commission_rate === null ||
+      selected?.commission_rate === undefined
         ? null
         : String(selected.commission_rate);
     setItems((prev) =>
@@ -380,12 +410,12 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               location_name: selected?.name ?? null,
               location_commission_rate: locationId ? commissionValue : null,
             }
-          : p
-      )
+          : p,
+      ),
     );
   };
 
-    const persistReorder = useCallback(
+  const persistReorder = useCallback(
     async (orderedIds: string[]) => {
       if (reordering) return;
       setReordering(true);
@@ -396,13 +426,15 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         setMessage((err as Error).message);
         setItems((prev) => {
           const byId = new Map(prev.map((p) => [p.id, p]));
-          return initialOrder.current.map((id) => byId.get(id)!).filter(Boolean);
+          return initialOrder.current
+            .map((id) => byId.get(id)!)
+            .filter(Boolean);
         });
       } finally {
         setReordering(false);
       }
     },
-    [reordering]
+    [reordering],
   );
 
   const sensors = useSensors(
@@ -411,7 +443,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 8 },
-    })
+    }),
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -446,7 +478,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     }
     const commission = newLocationCommissionRate.trim();
     const commissionValue =
-      commission === "" ? undefined : Number.isFinite(Number(commission)) ? Number(commission) : null;
+      commission === ""
+        ? undefined
+        : Number.isFinite(Number(commission))
+          ? Number(commission)
+          : null;
     setAddingLocation(true);
     setMessage(null);
     setLocationFeedback(null);
@@ -513,17 +549,16 @@ export default function GalleryEditor({ paintings, locations }: Props) {
 
   useEffect(() => {
     setItems(paintings);
-    setHomeId(paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null);
+    setHomeId(
+      paintings.find((p) => p.is_home_image || p.is_home_page)?.id ?? null,
+    );
   }, [paintings]);
-
-
-
 
   const handleStatusChange = async (paintingId: string, nextStatus: string) => {
     const current = items.find((p) => p.id === paintingId);
     if (current?.status === "sold" && nextStatus !== "sold") {
       const confirmed = confirm(
-        'Reverting from "Sold" will delete the associated sale order. Continue?'
+        'Reverting from "Sold" will delete the associated sale order. Continue?',
       );
       if (!confirmed) return;
       const orderId = current?.sale_order_id?.toString() || "";
@@ -576,9 +611,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     if (!activeInventoryPrintId) return;
     const qty = Math.max(1, Math.floor(Number(inventoryQty) || 0));
     if (!qty) return;
-    const selectedLocationId = inventoryLocationId || locationOptions[0]?.id || null;
+    const selectedLocationId =
+      inventoryLocationId || locationOptions[0]?.id || null;
     const locationName =
-      locationOptions.find((loc) => loc.id === selectedLocationId)?.name ?? null;
+      locationOptions.find((loc) => loc.id === selectedLocationId)?.name ??
+      null;
     if (!selectedLocationId) {
       setMessage("Add a location first.");
       return;
@@ -609,7 +646,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       });
       const nextQty = Number(data.quantity ?? 0);
       const nextLocationQty = Number(data.locationQuantity ?? qty);
-      const normalizedLocationId = data.locationId?.toString() || selectedLocationId;
+      const normalizedLocationId =
+        data.locationId?.toString() || selectedLocationId;
       setItems((prev) =>
         prev.map((p) => ({
           ...p,
@@ -619,9 +657,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   ...pr,
                   quantity: nextQty,
                   location_stock: (() => {
-                    const current = pr.location_stock ? [...pr.location_stock] : [];
+                    const current = pr.location_stock
+                      ? [...pr.location_stock]
+                      : [];
                     const existingIndex = current.findIndex(
-                      (loc) => loc.location_id === normalizedLocationId
+                      (loc) => loc.location_id === normalizedLocationId,
                     );
                     if (existingIndex >= 0) {
                       current[existingIndex] = {
@@ -638,9 +678,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     return current;
                   })(),
                 }
-              : pr
+              : pr,
           ),
-        }))
+        })),
       );
       setInventoryQty("");
       setActiveInventoryPrintId(null);
@@ -742,7 +782,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       setMessage('The "Online shop" location cannot be removed.');
       return;
     }
-    if (!confirm("Remove this location? It will no longer appear in lists.")) return;
+    if (!confirm("Remove this location? It will no longer appear in lists."))
+      return;
     setDeletingLocation(true);
     setMessage(null);
     setLocationFeedback(null);
@@ -795,8 +836,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 location_end_date: null,
                 location_commission_rate: null,
               }
-            : item
-        )
+            : item,
+        ),
       );
       setMessage("Location cleared.");
       router.refresh();
@@ -826,7 +867,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const handleSelectHome = (paintingId: string) => {
     setHomeId(paintingId);
     setItems((prev) =>
-      prev.map((p) => ({ ...p, is_home_image: p.id === paintingId }))
+      prev.map((p) => ({ ...p, is_home_image: p.id === paintingId })),
     );
   };
 
@@ -860,337 +901,373 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     const isSold = (painting.status || "").trim().toLowerCase() === "sold";
     return (
       <div className="space-y-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm sm:p-6">
-                          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-                  <div className="flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedPaintingId((prev) => (prev === painting.id ? null : painting.id))
-                      }
-                      aria-expanded={isExpanded}
-                      className="group relative overflow-hidden rounded border border-neutral-200 bg-neutral-50 text-left"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={painting.image_url}
-                        alt={painting.title}
-                        className="h-56 w-full object-cover sm:h-72 lg:h-[360px]"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 py-2 text-sm font-semibold text-white sm:hidden">
-                        <span className="truncate">{painting.title || "Untitled painting"}</span>
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] uppercase tracking-wide">
-                          {isExpanded ? "Hide" : "Edit"}
-                        </span>
-                      </div>
-                    </button>
-                    <label
-                      className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
-                        isExpanded ? "flex" : "hidden"
-                      } sm:flex`}
-                    >
-                      <input
-                        type="radio"
-                        name="home-image"
-                        checked={homeId === painting.id}
-                        onChange={() => handleSelectHome(painting.id)}
-                      />
-                      Set as homepage image
-                    </label>
-                    <label
-                      className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
-                        isExpanded ? "flex" : "hidden"
-                      } sm:flex`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={painting.include_in_gallery ?? true}
-                        onChange={(e) =>
-                          handleFieldChange(
-                            painting.id,
-                            "include_in_gallery",
-                            e.target.checked
-                          )
-                        }
-                      />
-                      Include in gallery?
-                    </label>
-                  </div>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedPaintingId((prev) =>
+                  prev === painting.id ? null : painting.id,
+                )
+              }
+              aria-expanded={isExpanded}
+              className="group relative overflow-hidden rounded border border-neutral-200 bg-neutral-50 text-left"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={painting.image_url}
+                alt={painting.title}
+                className="h-56 w-full object-cover sm:h-72 lg:h-[360px]"
+              />
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 py-2 text-sm font-semibold text-white sm:hidden">
+                <span className="truncate">
+                  {painting.title || "Untitled painting"}
+                </span>
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] uppercase tracking-wide">
+                  {isExpanded ? "Hide" : "Edit"}
+                </span>
+              </div>
+            </button>
+            <label
+              className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
+                isExpanded ? "flex" : "hidden"
+              } sm:flex`}
+            >
+              <input
+                type="radio"
+                name="home-image"
+                checked={homeId === painting.id}
+                onChange={() => handleSelectHome(painting.id)}
+              />
+              Set as homepage image
+            </label>
+            <label
+              className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
+                isExpanded ? "flex" : "hidden"
+              } sm:flex`}
+            >
+              <input
+                type="checkbox"
+                checked={painting.include_in_gallery ?? true}
+                onChange={(e) =>
+                  handleFieldChange(
+                    painting.id,
+                    "include_in_gallery",
+                    e.target.checked,
+                  )
+                }
+              />
+              Include in gallery?
+            </label>
+          </div>
 
-                  <div className={`${isExpanded ? "block" : "hidden"} space-y-4 sm:block`}>
-                    <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
-                      <div className="text-sm font-semibold text-neutral-900">Original</div>
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-neutral-800">
-                            Title
-                          </label>
-                          <input
-                            value={painting.title}
-                            onChange={(e) =>
-                              handleFieldChange(painting.id, "title", e.target.value)
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-neutral-800">
-                            Price
-                          </label>
-                          <input
-                            value={painting.price_original}
-                            onChange={(e) =>
-                              handleFieldChange(painting.id, "price_original", e.target.value)
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
-                      </div>
-                    <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-neutral-800">
-                          Details
-                        </label>
-                          <textarea
-                            value={painting.details || ""}
-                            onChange={(e) =>
-                              handleFieldChange(painting.id, "details", e.target.value)
-                            }
-                            rows={6}
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-neutral-800">
-                              Size (original)
-                            </label>
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                              <input
-                                value={stripInches(painting.size_original.split("x")[0]?.trim() || "")}
-                                onChange={(e) => {
-                                  const parts = painting.size_original
-                                    .split("x")
-                                    .map((p) => stripInches(p.trim()));
-                                  const height = parts[1] ?? "";
-                                  handleFieldChange(
-                                    painting.id,
-                                    "size_original",
-                                    `${stripInches(e.target.value)} x ${height}`
-                                  );
-                                }}
-                                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                                placeholder="Width"
-                                aria-label="Original width"
-                              />
-                              <span className="text-sm text-neutral-700">x</span>
-                              <input
-                                value={stripInches(painting.size_original.split("x")[1]?.trim() || "")}
-                                onChange={(e) => {
-                                  const parts = painting.size_original
-                                    .split("x")
-                                    .map((p) => stripInches(p.trim()));
-                                  const width = parts[0] ?? "";
-                                  handleFieldChange(
-                                    painting.id,
-                                    "size_original",
-                                    `${width} x ${stripInches(e.target.value)}`
-                                  );
-                                }}
-                                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                                placeholder="Height"
-                                aria-label="Original height"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-neutral-800">
-                              Medium
-                            </label>
-                            <input
-                              value={painting.medium}
-                              onChange={(e) =>
-                                handleFieldChange(painting.id, "medium", e.target.value)
-                              }
-                              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-sm font-medium text-neutral-800">
-                              Status
-                            </label>
-                            <select
-                              value={painting.status || ""}
-                              onChange={(e) =>
-                                handleStatusChange(painting.id, e.target.value)
-                              }
-                              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                            >
-                              <option value="available for sale">Available for sale</option>
-                              <option value="sold">Sold</option>
-                              <option value="not available for sale">Not available for sale</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          <div
+            className={`${isExpanded ? "block" : "hidden"} space-y-4 sm:block`}
+          >
+            <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
+              <div className="text-sm font-semibold text-neutral-900">
+                Original
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-800">
+                    Title
+                  </label>
+                  <input
+                    value={painting.title}
+                    onChange={(e) =>
+                      handleFieldChange(painting.id, "title", e.target.value)
+                    }
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
                 </div>
-
-                <div className={`${isExpanded ? "block" : "hidden"} space-y-3 sm:block`}>
-                  {isSold ? (
-                    <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
-                      <div className="text-sm font-semibold text-neutral-900">
-                        Sold to {painting.sold_customer_name || "Unknown buyer"} for{" "}
-                        {formatMoney(painting.sold_price)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={`space-y-3 rounded border p-4 ${
-                        isDateBeforeToday(painting.location_end_date)
-                          ? "border-amber-200 bg-amber-50"
-                          : "border-neutral-200 bg-neutral-50"
-                      }`}
-                    >
-                      <div className="text-sm font-semibold text-neutral-900">Location</div>
-                      {isDateBeforeToday(painting.location_end_date) && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-100 px-3 py-2 text-xs text-amber-900">
-                          <span>
-                            Location end date has passed. Mark this painting as retrieved.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleMarkRetrieved(painting.id)}
-                            disabled={retrievingId === painting.id}
-                            className="rounded border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-50 disabled:opacity-60"
-                          >
-                            {retrievingId === painting.id ? "Updating..." : "Retrieved"}
-                          </button>
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <label className="block text-sm font-medium text-neutral-800">
-                          Location
-                        </label>
-                        {(() => {
-                          const alreadyHas = painting.location_id
-                            ? locationOptions.some((loc) => idToString(loc.id) === idToString(painting.location_id))
-                            : false;
-                          const filteredLocations = locationOptions.filter(
-                            (loc) => loc.name.trim().toLowerCase() !== "online shop"
-                          );
-                          const options =
-                            alreadyHas || !painting.location_id
-                              ? filteredLocations
-                              : [
-                                  {
-                                    id: painting.location_id,
-                                    name: painting.location_name || "Unknown location",
-                                    notes: null,
-                                  },
-                                  ...filteredLocations,
-                                ];
-                          return (
-                          <select
-                            value={idToString(painting.location_id)}
-                            onChange={(e) =>
-                              handleLocationChange(
-                                painting.id,
-                                e.target.value ? e.target.value : null
-                              )
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          >
-                            <option value="">No location</option>
-                            {options.map((loc) => (
-                            <option key={idToString(loc.id)} value={idToString(loc.id)}>
-                              {loc.name}
-                            </option>
-                          ))}
-                          </select>
-                          );
-                        })()}
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="block text-sm font-medium text-neutral-800">
-                            Location start date
-                          </label>
-                            <input
-                              type="date"
-                              value={normalizeDateInput(painting.location_start_date)}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                painting.id,
-                                "location_start_date",
-                                e.target.value
-                              )
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="block text-sm font-medium text-neutral-800">
-                            Location end date
-                          </label>
-                            <input
-                              type="date"
-                              value={normalizeDateInput(painting.location_end_date)}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                painting.id,
-                                "location_end_date",
-                                e.target.value
-                              )
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-sm font-medium text-neutral-800">
-                          Commission %
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={painting.location_commission_rate || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              painting.id,
-                              "location_commission_rate",
-                              e.target.value
-                            )
-                          }
-                          placeholder="e.g. 30"
-                          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className={`${isExpanded ? "flex" : "hidden"} flex-wrap items-center gap-3 sm:flex`}>
-                  <button
-                    type="button"
-                    onClick={() => handleSave(painting)}
-                    disabled={savingId === painting.id}
-                    className="w-full rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60 sm:w-auto"
-                  >
-                    {savingId === painting.id ? "Saving..." : "Save changes"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(painting.id)}
-                    disabled={deletingId === painting.id}
-                    className="w-full rounded border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 sm:w-auto"
-                  >
-                    {deletingId === painting.id ? "Deleting..." : "Delete painting"}
-                  </button>
-                  {message && <span className="text-sm text-neutral-700">{message}</span>}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-800">
+                    Price
+                  </label>
+                  <input
+                    value={painting.price_original}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        painting.id,
+                        "price_original",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
                 </div>
               </div>
+              <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-800">
+                    Details
+                  </label>
+                  <textarea
+                    value={painting.details || ""}
+                    onChange={(e) =>
+                      handleFieldChange(painting.id, "details", e.target.value)
+                    }
+                    rows={6}
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-neutral-800">
+                      Size (original)
+                    </label>
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                      <input
+                        value={stripInches(
+                          painting.size_original.split("x")[0]?.trim() || "",
+                        )}
+                        onChange={(e) => {
+                          const parts = painting.size_original
+                            .split("x")
+                            .map((p) => stripInches(p.trim()));
+                          const height = parts[1] ?? "";
+                          handleFieldChange(
+                            painting.id,
+                            "size_original",
+                            `${stripInches(e.target.value)} x ${height}`,
+                          );
+                        }}
+                        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        placeholder="Width"
+                        aria-label="Original width"
+                      />
+                      <span className="text-sm text-neutral-700">x</span>
+                      <input
+                        value={stripInches(
+                          painting.size_original.split("x")[1]?.trim() || "",
+                        )}
+                        onChange={(e) => {
+                          const parts = painting.size_original
+                            .split("x")
+                            .map((p) => stripInches(p.trim()));
+                          const width = parts[0] ?? "";
+                          handleFieldChange(
+                            painting.id,
+                            "size_original",
+                            `${width} x ${stripInches(e.target.value)}`,
+                          );
+                        }}
+                        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        placeholder="Height"
+                        aria-label="Original height"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-neutral-800">
+                      Medium
+                    </label>
+                    <input
+                      value={painting.medium}
+                      onChange={(e) =>
+                        handleFieldChange(painting.id, "medium", e.target.value)
+                      }
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-neutral-800">
+                      Status
+                    </label>
+                    <select
+                      value={painting.status || ""}
+                      onChange={(e) =>
+                        handleStatusChange(painting.id, e.target.value)
+                      }
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    >
+                      <option value="available for sale">
+                        Available for sale
+                      </option>
+                      <option value="sold">Sold</option>
+                      <option value="not available for sale">
+                        Not available for sale
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`${isExpanded ? "block" : "hidden"} space-y-3 sm:block`}
+        >
+          {isSold ? (
+            <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50 p-4">
+              <div className="text-sm font-semibold text-neutral-900">
+                Sold to {painting.sold_customer_name || "Unknown buyer"} for{" "}
+                {formatMoney(painting.sold_price)}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`space-y-3 rounded border p-4 ${
+                isDateBeforeToday(painting.location_end_date)
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-neutral-200 bg-neutral-50"
+              }`}
+            >
+              <div className="text-sm font-semibold text-neutral-900">
+                Location
+              </div>
+              {isDateBeforeToday(painting.location_end_date) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-100 px-3 py-2 text-xs text-amber-900">
+                  <span>
+                    Location end date has passed. Mark this painting as
+                    retrieved.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleMarkRetrieved(painting.id)}
+                    disabled={retrievingId === painting.id}
+                    className="rounded border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-50 disabled:opacity-60"
+                  >
+                    {retrievingId === painting.id ? "Updating..." : "Retrieved"}
+                  </button>
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-neutral-800">
+                  Location
+                </label>
+                {(() => {
+                  const alreadyHas = painting.location_id
+                    ? locationOptions.some(
+                        (loc) =>
+                          idToString(loc.id) ===
+                          idToString(painting.location_id),
+                      )
+                    : false;
+                  const filteredLocations = locationOptions.filter(
+                    (loc) => loc.name.trim().toLowerCase() !== "online shop",
+                  );
+                  const options =
+                    alreadyHas || !painting.location_id
+                      ? filteredLocations
+                      : [
+                          {
+                            id: painting.location_id,
+                            name: painting.location_name || "Unknown location",
+                            notes: null,
+                          },
+                          ...filteredLocations,
+                        ];
+                  return (
+                    <select
+                      value={idToString(painting.location_id)}
+                      onChange={(e) =>
+                        handleLocationChange(
+                          painting.id,
+                          e.target.value ? e.target.value : null,
+                        )
+                      }
+                      className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    >
+                      <option value="">No location</option>
+                      {options.map((loc) => (
+                        <option
+                          key={idToString(loc.id)}
+                          value={idToString(loc.id)}
+                        >
+                          {loc.name}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-neutral-800">
+                    Location start date
+                  </label>
+                  <input
+                    type="date"
+                    value={normalizeDateInput(painting.location_start_date)}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        painting.id,
+                        "location_start_date",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-neutral-800">
+                    Location end date
+                  </label>
+                  <input
+                    type="date"
+                    value={normalizeDateInput(painting.location_end_date)}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        painting.id,
+                        "location_end_date",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-neutral-800">
+                  Commission %
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={painting.location_commission_rate || ""}
+                  onChange={(e) =>
+                    handleFieldChange(
+                      painting.id,
+                      "location_commission_rate",
+                      e.target.value,
+                    )
+                  }
+                  placeholder="e.g. 30"
+                  className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={`${isExpanded ? "flex" : "hidden"} flex-wrap items-center gap-3 sm:flex`}
+        >
+          <button
+            type="button"
+            onClick={() => handleSave(painting)}
+            disabled={savingId === painting.id}
+            className="w-full rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60 sm:w-auto"
+          >
+            {savingId === painting.id ? "Saving..." : "Save changes"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(painting.id)}
+            disabled={deletingId === painting.id}
+            className="w-full rounded border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 sm:w-auto"
+          >
+            {deletingId === painting.id ? "Deleting..." : "Delete painting"}
+          </button>
+          {message && (
+            <span className="text-sm text-neutral-700">{message}</span>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -1221,7 +1298,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-neutral-900">Locations</div>
+          <div className="text-lg font-semibold text-neutral-900">
+            Edit Locations
+          </div>
         </div>
         {locationFeedback && (
           <div className="mt-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
@@ -1263,7 +1342,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               <>
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-800">Location name</label>
+                    <label className="text-sm font-medium text-neutral-800">
+                      Location name
+                    </label>
                     <input
                       value={newLocationName}
                       onChange={(e) => setNewLocationName(e.target.value)}
@@ -1272,7 +1353,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-800">Notes (optional)</label>
+                    <label className="text-sm font-medium text-neutral-800">
+                      Notes (optional)
+                    </label>
                     <input
                       value={newLocationNotes}
                       onChange={(e) => setNewLocationNotes(e.target.value)}
@@ -1283,7 +1366,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Address</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Address
+                  </label>
                   <input
                     value={newLocationAddress1}
                     onChange={(e) => setNewLocationAddress1(e.target.value)}
@@ -1327,7 +1412,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Contact</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Contact
+                  </label>
                   <input
                     value={newLocationContactName}
                     onChange={(e) => setNewLocationContactName(e.target.value)}
@@ -1337,13 +1424,17 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   <div className="grid gap-3 lg:grid-cols-2">
                     <input
                       value={newLocationContactPhone}
-                      onChange={(e) => setNewLocationContactPhone(e.target.value)}
+                      onChange={(e) =>
+                        setNewLocationContactPhone(e.target.value)
+                      }
                       placeholder="Contact phone"
                       className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     />
                     <input
                       value={newLocationContactEmail}
-                      onChange={(e) => setNewLocationContactEmail(e.target.value)}
+                      onChange={(e) =>
+                        setNewLocationContactEmail(e.target.value)
+                      }
                       placeholder="Contact email"
                       className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     />
@@ -1351,13 +1442,17 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Commission %</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Commission %
+                  </label>
                   <input
                     type="number"
                     min="0"
                     step="1"
                     value={newLocationCommissionRate}
-                    onChange={(e) => setNewLocationCommissionRate(e.target.value)}
+                    onChange={(e) =>
+                      setNewLocationCommissionRate(e.target.value)
+                    }
                     className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     placeholder="e.g. 20"
                   />
@@ -1377,7 +1472,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
             ) : (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Select location</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Select location
+                  </label>
                   <select
                     value={editLocationId || ""}
                     onChange={(e) => setEditLocationId(e.target.value || null)}
@@ -1393,17 +1490,23 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-800">Location name</label>
+                    <label className="text-sm font-medium text-neutral-800">
+                      Location name
+                    </label>
                     <input
                       value={editLocationName}
                       onChange={(e) => setEditLocationName(e.target.value)}
                       placeholder="Location name"
-                      disabled={editLocationName.trim().toLowerCase() === "online shop"}
+                      disabled={
+                        editLocationName.trim().toLowerCase() === "online shop"
+                      }
                       className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-800">Notes (optional)</label>
+                    <label className="text-sm font-medium text-neutral-800">
+                      Notes (optional)
+                    </label>
                     <input
                       value={editLocationNotes}
                       onChange={(e) => setEditLocationNotes(e.target.value)}
@@ -1414,7 +1517,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Address</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Address
+                  </label>
                   <input
                     value={editLocationAddress1}
                     onChange={(e) => setEditLocationAddress1(e.target.value)}
@@ -1458,7 +1563,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Contact</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Contact
+                  </label>
                   <input
                     value={editLocationContactName}
                     onChange={(e) => setEditLocationContactName(e.target.value)}
@@ -1468,13 +1575,17 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   <div className="grid gap-3 lg:grid-cols-2">
                     <input
                       value={editLocationContactPhone}
-                      onChange={(e) => setEditLocationContactPhone(e.target.value)}
+                      onChange={(e) =>
+                        setEditLocationContactPhone(e.target.value)
+                      }
                       placeholder="Contact phone"
                       className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     />
                     <input
                       value={editLocationContactEmail}
-                      onChange={(e) => setEditLocationContactEmail(e.target.value)}
+                      onChange={(e) =>
+                        setEditLocationContactEmail(e.target.value)
+                      }
                       placeholder="Contact email"
                       className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     />
@@ -1482,13 +1593,17 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800">Commission %</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Commission %
+                  </label>
                   <input
                     type="number"
                     min="0"
                     step="1"
                     value={editLocationCommissionRate}
-                    onChange={(e) => setEditLocationCommissionRate(e.target.value)}
+                    onChange={(e) =>
+                      setEditLocationCommissionRate(e.target.value)
+                    }
                     className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     placeholder="e.g. 20"
                   />
@@ -1523,9 +1638,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       </div>
       <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold text-neutral-900">Gallery order</div>
+          <div className="text-lg font-semibold text-neutral-900">
+            Edit Gallery
+          </div>
           {reordering ? (
-            <div className="text-sm font-medium text-neutral-500">Saving...</div>
+            <div className="text-sm font-medium text-neutral-500">
+              Saving...
+            </div>
           ) : null}
         </div>
 
@@ -1546,7 +1665,10 @@ export default function GalleryEditor({ paintings, locations }: Props) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => setDragActiveId(null)}
           >
-            <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+            <SortableContext
+              items={items.map((p) => p.id)}
+              strategy={rectSortingStrategy}
+            >
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {items.map((p) => (
                   <SortableTile
@@ -1583,7 +1705,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
       </div>
 
       {selectedPainting ? renderPaintingEditor(selectedPainting) : null}
-      {isGalleryRoute && activeInventoryPrintId &&
+      {isGalleryRoute &&
+        activeInventoryPrintId &&
         createPortal(
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
@@ -1595,7 +1718,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               className="w-full max-w-sm space-y-4 rounded-lg bg-white p-5 shadow-xl"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-neutral-900">Edit inventory</h3>
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  Edit inventory
+                </h3>
                 <button
                   type="button"
                   onClick={() => {
@@ -1609,11 +1734,15 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               </div>
               <div className="space-y-2 text-sm text-neutral-800">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-neutral-800">Location</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Location
+                  </label>
                   <select
                     value={inventoryLocationId || ""}
                     onChange={(e) =>
-                      setInventoryLocationId(e.target.value ? e.target.value : null)
+                      setInventoryLocationId(
+                        e.target.value ? e.target.value : null,
+                      )
                     }
                     className="w-full rounded border border-neutral-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
                   >
@@ -1625,11 +1754,15 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-800">Mode</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Mode
+                  </label>
                   <select
                     value={inventoryMode}
                     onChange={(e) =>
-                      setInventoryMode(e.target.value === "remove" ? "remove" : "add")
+                      setInventoryMode(
+                        e.target.value === "remove" ? "remove" : "add",
+                      )
                     }
                     className="rounded border border-neutral-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200"
                   >
@@ -1638,7 +1771,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-neutral-800">Qty</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Qty
+                  </label>
                   <input
                     type="number"
                     min={1}
@@ -1648,7 +1783,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-neutral-800">Reason</label>
+                  <label className="text-sm font-medium text-neutral-800">
+                    Reason
+                  </label>
                   <select
                     value={inventoryReason}
                     onChange={(e) => setInventoryReason(e.target.value)}
@@ -1678,14 +1815,17 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   disabled={updatingQtyId === activeInventoryPrintId}
                   className="rounded bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
                 >
-                  {updatingQtyId === activeInventoryPrintId ? "Saving..." : "Save"}
+                  {updatingQtyId === activeInventoryPrintId
+                    ? "Saving..."
+                    : "Save"}
                 </button>
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
-      {isGalleryRoute && activeSoldPaintingId &&
+      {isGalleryRoute &&
+        activeSoldPaintingId &&
         createPortal(
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
@@ -1697,12 +1837,18 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               className="w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4 rounded-lg bg-white p-5 shadow-xl"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-neutral-900">Mark as sold</h3>
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  Mark as sold
+                </h3>
                 <button
                   type="button"
                   onClick={() => {
                     if (previousStatus !== null) {
-                      handleFieldChange(activeSoldPaintingId, "status", previousStatus);
+                      handleFieldChange(
+                        activeSoldPaintingId,
+                        "status",
+                        previousStatus,
+                      );
                     }
                     setActiveSoldPaintingId(null);
                     setPreviousStatus(null);
@@ -1714,13 +1860,19 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               </div>
               <div className="space-y-3 text-sm text-neutral-800">
                 <p className="text-xs text-neutral-600">
-                  Enter order details (for record-keeping; this modal does not update orders).
+                  Enter order details (for record-keeping; this modal does not
+                  update orders).
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-700">First name</label>
+                    <label className="text-xs font-medium text-neutral-700">
+                      First name
+                    </label>
                     <input
-                      value={soldDetails[activeSoldPaintingId]?.customerFirstName || ""}
+                      value={
+                        soldDetails[activeSoldPaintingId]?.customerFirstName ||
+                        ""
+                      }
                       onChange={(e) =>
                         setSoldDetails((prev) => ({
                           ...prev,
@@ -1734,9 +1886,14 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-700">Last name</label>
+                    <label className="text-xs font-medium text-neutral-700">
+                      Last name
+                    </label>
                     <input
-                      value={soldDetails[activeSoldPaintingId]?.customerLastName || ""}
+                      value={
+                        soldDetails[activeSoldPaintingId]?.customerLastName ||
+                        ""
+                      }
                       onChange={(e) =>
                         setSoldDetails((prev) => ({
                           ...prev,
@@ -1751,9 +1908,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-neutral-700">Email</label>
+                  <label className="text-xs font-medium text-neutral-700">
+                    Email
+                  </label>
                   <input
-                    value={soldDetails[activeSoldPaintingId]?.customerEmail || ""}
+                    value={
+                      soldDetails[activeSoldPaintingId]?.customerEmail || ""
+                    }
                     onChange={(e) =>
                       setSoldDetails((prev) => ({
                         ...prev,
@@ -1767,9 +1928,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-neutral-700">Phone</label>
+                  <label className="text-xs font-medium text-neutral-700">
+                    Phone
+                  </label>
                   <input
-                    value={soldDetails[activeSoldPaintingId]?.customerPhone || ""}
+                    value={
+                      soldDetails[activeSoldPaintingId]?.customerPhone || ""
+                    }
                     onChange={(e) =>
                       setSoldDetails((prev) => ({
                         ...prev,
@@ -1784,9 +1949,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-700">Address line 1</label>
+                    <label className="text-xs font-medium text-neutral-700">
+                      Address line 1
+                    </label>
                     <input
-                      value={soldDetails[activeSoldPaintingId]?.shipAddress1 || ""}
+                      value={
+                        soldDetails[activeSoldPaintingId]?.shipAddress1 || ""
+                      }
                       onChange={(e) =>
                         setSoldDetails((prev) => ({
                           ...prev,
@@ -1800,9 +1969,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-700">Address line 2</label>
+                    <label className="text-xs font-medium text-neutral-700">
+                      Address line 2
+                    </label>
                     <input
-                      value={soldDetails[activeSoldPaintingId]?.shipAddress2 || ""}
+                      value={
+                        soldDetails[activeSoldPaintingId]?.shipAddress2 || ""
+                      }
                       onChange={(e) =>
                         setSoldDetails((prev) => ({
                           ...prev,
@@ -1817,9 +1990,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-neutral-700">City</label>
+                      <label className="text-xs font-medium text-neutral-700">
+                        City
+                      </label>
                       <input
-                        value={soldDetails[activeSoldPaintingId]?.shipCity || ""}
+                        value={
+                          soldDetails[activeSoldPaintingId]?.shipCity || ""
+                        }
                         onChange={(e) =>
                           setSoldDetails((prev) => ({
                             ...prev,
@@ -1833,9 +2010,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-neutral-700">Province/State</label>
+                      <label className="text-xs font-medium text-neutral-700">
+                        Province/State
+                      </label>
                       <input
-                        value={soldDetails[activeSoldPaintingId]?.shipProvince || ""}
+                        value={
+                          soldDetails[activeSoldPaintingId]?.shipProvince || ""
+                        }
                         onChange={(e) =>
                           setSoldDetails((prev) => ({
                             ...prev,
@@ -1851,9 +2032,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-neutral-700">Postal/Zip</label>
+                      <label className="text-xs font-medium text-neutral-700">
+                        Postal/Zip
+                      </label>
                       <input
-                        value={soldDetails[activeSoldPaintingId]?.shipPostal || ""}
+                        value={
+                          soldDetails[activeSoldPaintingId]?.shipPostal || ""
+                        }
                         onChange={(e) =>
                           setSoldDetails((prev) => ({
                             ...prev,
@@ -1867,9 +2052,13 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-neutral-700">Country</label>
+                      <label className="text-xs font-medium text-neutral-700">
+                        Country
+                      </label>
                       <input
-                        value={soldDetails[activeSoldPaintingId]?.shipCountry || ""}
+                        value={
+                          soldDetails[activeSoldPaintingId]?.shipCountry || ""
+                        }
                         onChange={(e) =>
                           setSoldDetails((prev) => ({
                             ...prev,
@@ -1886,7 +2075,9 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-700">Price paid</label>
+                    <label className="text-xs font-medium text-neutral-700">
+                      Price paid
+                    </label>
                     <input
                       ref={priceInputRef}
                       type="number"
@@ -1907,9 +2098,12 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     />
                   </div>
                 </div>
-                {activeSoldPainting?.location_id || activeSoldPainting?.location_name ? (
+                {activeSoldPainting?.location_id ||
+                activeSoldPainting?.location_name ? (
                   <div className="space-y-2 rounded border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-800">
-                    <div className="font-semibold text-neutral-900">Location</div>
+                    <div className="font-semibold text-neutral-900">
+                      Location
+                    </div>
                     <div className="flex items-center justify-between">
                       <span>Name</span>
                       <span className="font-semibold text-neutral-900">
@@ -1917,17 +2111,21 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-neutral-700">Commission %</label>
+                      <label className="text-xs font-medium text-neutral-700">
+                        Commission %
+                      </label>
                       <input
                         type="number"
                         min="0"
                         step="1"
-                        value={activeSoldPainting.location_commission_rate || ""}
+                        value={
+                          activeSoldPainting.location_commission_rate || ""
+                        }
                         onChange={(e) =>
                           handleFieldChange(
                             activeSoldPainting.id,
                             "location_commission_rate",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         placeholder="e.g. 30"
@@ -1942,7 +2140,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   type="button"
                   onClick={() => {
                     if (previousStatus !== null) {
-                      handleFieldChange(activeSoldPaintingId, "status", previousStatus);
+                      handleFieldChange(
+                        activeSoldPaintingId,
+                        "status",
+                        previousStatus,
+                      );
                     }
                     setActiveSoldPaintingId(null);
                     setPreviousStatus(null);
@@ -1955,7 +2157,10 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                   type="button"
                   onClick={() => {
                     const details = soldDetails[activeSoldPaintingId] || {};
-                    if (priceInputRef.current && !priceInputRef.current.reportValidity()) {
+                    if (
+                      priceInputRef.current &&
+                      !priceInputRef.current.reportValidity()
+                    ) {
                       return;
                     }
                     setSavingSold(true);
@@ -1963,7 +2168,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                     markPaintingSoldAction({
                       paintingId: activeSoldPaintingId!,
                       pricePaid: Number(details.pricePaid),
-                      commissionRate: activeSoldPainting?.location_commission_rate || null,
+                      commissionRate:
+                        activeSoldPainting?.location_commission_rate || null,
                       customerFirstName: details.customerFirstName || null,
                       customerLastName: details.customerLastName || null,
                       customerEmail: details.customerEmail || null,
@@ -1976,7 +2182,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                       shipCountry: details.shipCountry || null,
                     })
                       .then(() => {
-                        handleFieldChange(activeSoldPaintingId!, "status", "sold");
+                        handleFieldChange(
+                          activeSoldPaintingId!,
+                          "status",
+                          "sold",
+                        );
                         setActiveSoldPaintingId(null);
                         setPreviousStatus(null);
                         setMessage("Sale recorded.");
@@ -1994,8 +2204,8 @@ export default function GalleryEditor({ paintings, locations }: Props) {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
-      </div>
+    </div>
   );
 }

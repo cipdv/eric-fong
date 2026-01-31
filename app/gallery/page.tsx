@@ -156,7 +156,7 @@ export default async function GalleryPage() {
                     </div>
                     <Link
                       href={{ pathname: "/prints", query: { paintingId: painting.id } }}
-                      className="mt-2 inline-flex items-center rounded bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+                      className="mt-2 inline-flex items-center justify-center border border-neutral-900 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-900 transition hover:bg-neutral-900 hover:text-white"
                     >
                       Purchase print
                     </Link>
