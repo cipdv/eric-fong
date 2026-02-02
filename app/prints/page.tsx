@@ -51,6 +51,7 @@ async function getPaintingsWithPrints(): Promise<Painting[]> {
     LEFT JOIN prints pr ON pr.painting_id = p.id
     LEFT JOIN print_location_stock pls ON pls.print_id = pr.id
     LEFT JOIN locations l ON l.id = pls.location_id
+    WHERE p.prints_available IS TRUE
     GROUP BY
       p.id,
       p.title,

@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type ProfileCardProps = {
   name: string;
   about?: string | null;
@@ -17,10 +19,11 @@ export function ProfileCard({
     >
       {photoUrl ? (
         <div className="w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={photoUrl}
             alt={`${name} profile photo`}
+            width={720}
+            height={900}
             className="h-full w-full object-cover"
           />
         </div>

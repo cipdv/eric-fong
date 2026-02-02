@@ -107,9 +107,11 @@ export default async function GalleryPage() {
                 <h2 className="text-lg font-semibold text-neutral-900">
                   {painting.title}
                 </h2>
-                <div className="space-y-1 whitespace-pre-line">
-                  {painting.details || "Details coming soon."}
-                </div>
+                {painting.details ? (
+                  <div className="space-y-1 whitespace-pre-line">
+                    {painting.details}
+                  </div>
+                ) : null}
 
                 <div className="space-y-1 text-sm text-neutral-700">
                   <div>
@@ -161,11 +163,7 @@ export default async function GalleryPage() {
                       Purchase print
                     </Link>
                   </div>
-                ) : (
-                  <div className="text-sm text-neutral-600">
-                    Prints not available.
-                  </div>
-                )}
+                ) : null}
               </div>
             </article>
           );
