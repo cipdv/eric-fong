@@ -6,11 +6,6 @@ import { sql } from "@vercel/postgres";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
-// function hashPassword(password: string) {
-//   // Simple hash for demo; replace with a stronger hash if available.
-//   return crypto.createHash("sha256").update(password).digest("hex");
-// }
-
 async function createSession(userId: string) {
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
@@ -78,29 +73,27 @@ export async function registerAction(input: {
 
 export async function loginAction(input: { email: string; password: string }) {
   const email = input.email.trim().toLowerCase();
-  // const password = input.password;
+  const password = input.password;
   if (!email) throw new Error("Email is required.");
+  if (!password) throw new Error("Password is required.");
 
   const user = await fetchExistingUser(email);
-  // const storedHash = user?.password_hash?.trim() || null;
-
-  // const sha = hashPassword(password);
-
-  // let matches = false;
-  // if (storedHash) {
-  //   try {
-  //     if (storedHash.startsWith("$2")) {
-  //       matches = await bcrypt.compare(password, storedHash);
-  //     } else if (storedHash === password || storedHash === sha) {
-  //       matches = true;
-  //     }
-  //   } catch {
-  //     // ignore
-  //   }
-  // }
-  // If user exists but no hash stored, do not lock out completely; allow SHA fallback.
+  const storedHash = user?.password_hash?.trim() || null;
 
   if (!user) {
+    throw new Error("Invalid credentials.");
+  }
+  if (!storedHash) {
+    throw new Error("Invalid credentials.");
+  }
+
+  let matches = false;
+  try {
+    matches = await bcrypt.compare(password, storedHash);
+  } catch {
+    matches = false;
+  }
+  if (!matches) {
     throw new Error("Invalid credentials.");
   }
 

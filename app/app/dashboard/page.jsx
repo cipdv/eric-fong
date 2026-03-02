@@ -106,9 +106,9 @@ async function markPaintingRetrievedAction(formData) {
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("app_session");
+  const sessionToken = cookieStore.get("app_session")?.value?.trim();
 
-  if (!sessionCookie) {
+  if (!sessionToken) {
     return (
       <div className="pb-12">
         <h1 className="text-2xl font-semibold text-neutral-900">
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
     SELECT users.id, users.first_name
     FROM sessions
     JOIN users ON users.id = sessions.user_id
-    WHERE sessions.token = ${sessionCookie.value}
+    WHERE sessions.token = ${sessionToken}
       AND sessions.expires_at > NOW()
     LIMIT 1;
   `;

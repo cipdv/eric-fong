@@ -6,13 +6,13 @@ import { revalidatePath } from "next/cache";
 
 export async function logoutAction() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("app_session")?.value;
+  const token = cookieStore.get("app_session")?.value?.trim();
 
   if (token) {
     await sql`DELETE FROM sessions WHERE token = ${token};`;
   }
 
-  cookieStore.set("app_session", "", { path: "/", maxAge: 0 });
+  cookieStore.delete("app_session");
   revalidatePath("/");
   revalidatePath("/app/dashboard");
   return { ok: true };
