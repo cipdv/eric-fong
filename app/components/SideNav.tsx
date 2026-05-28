@@ -182,6 +182,26 @@ export function SideNav() {
         >
           Contact
         </Link>
+        <a
+          href="https://www.instagram.com/pedestrian_rage/"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Instagram @pedestrian_rage"
+          className="inline-flex items-center text-neutral-900 transition hover:text-neutral-600"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-5 w-5 fill-none stroke-current"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </a>
       </>
     );
   };
