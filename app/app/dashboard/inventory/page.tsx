@@ -45,6 +45,17 @@ async function getCurrentUser() {
 type LocationOption = {
   id: string;
   name: string;
+  notes: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  province: string | null;
+  postal: string | null;
+  country: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  commission_rate: number | null;
 };
 
 async function getInventory(userId: string): Promise<InventoryPainting[]> {
@@ -147,8 +158,28 @@ async function getInventory(userId: string): Promise<InventoryPainting[]> {
 }
 
 async function getLocations(): Promise<LocationOption[]> {
+  await sql`
+    INSERT INTO locations (name, status)
+    VALUES ('Online shop', 'active')
+    ON CONFLICT (name)
+    DO UPDATE SET status = 'active';
+  `;
+
   const { rows } = await sql<LocationOption>`
-    SELECT id, name
+    SELECT
+      id,
+      name,
+      notes,
+      address_line1,
+      address_line2,
+      city,
+      province,
+      postal,
+      country,
+      contact_name,
+      contact_phone,
+      contact_email,
+      commission_rate
     FROM locations
     WHERE status IS NULL OR status <> 'removed'
     ORDER BY name ASC;
@@ -156,6 +187,20 @@ async function getLocations(): Promise<LocationOption[]> {
   return rows.map((row) => ({
     id: String(row.id),
     name: row.name,
+    notes: row.notes,
+    address_line1: row.address_line1,
+    address_line2: row.address_line2,
+    city: row.city,
+    province: row.province,
+    postal: row.postal,
+    country: row.country,
+    contact_name: row.contact_name,
+    contact_phone: row.contact_phone,
+    contact_email: row.contact_email,
+    commission_rate:
+      row.commission_rate !== null && row.commission_rate !== undefined
+        ? Number(row.commission_rate)
+        : null,
   }));
 }
 

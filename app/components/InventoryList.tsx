@@ -93,7 +93,9 @@ function VariantCard({ print, locations }: VariantCardProps) {
     { text: string; tone: "success" | "error" } | null
   >(null);
   const [adjustError, setAdjustError] = useState<string | null>(null);
-  const [actionBusy, setActionBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<
+    "add" | "remove" | "move" | "price" | null
+  >(null);
   const locationRows = useMemo(() => {
     const map = new Map<
       string,
@@ -204,7 +206,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
       setAdjustError("Enter a valid add quantity.");
       return;
     }
-    setActionBusy(true);
+    setBusyAction("add");
     setAdjustError(null);
     setMessage(null);
     try {
@@ -221,7 +223,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
         (err as Error)?.message || "Unable to add inventory."
       );
     } finally {
-      setActionBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -236,7 +238,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
       setAdjustError(`Only ${available} available at this location.`);
       return;
     }
-    setActionBusy(true);
+    setBusyAction("remove");
     setAdjustError(null);
     setMessage(null);
     try {
@@ -284,7 +286,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
         (err as Error)?.message || "Unable to delete inventory."
       );
     } finally {
-      setActionBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -303,7 +305,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
       setAdjustError(`Only ${available} available at this location.`);
       return;
     }
-    setActionBusy(true);
+    setBusyAction("move");
     setAdjustError(null);
     setMessage(null);
     try {
@@ -321,7 +323,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
         (err as Error)?.message || "Unable to move inventory."
       );
     } finally {
-      setActionBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -380,10 +382,11 @@ function VariantCard({ print, locations }: VariantCardProps) {
                     />
                     <button
                       type="button"
-                      disabled={actionBusy}
+                      disabled={busyAction !== null}
+                      aria-busy={busyAction === "price"}
                       onClick={async () => {
                         const nextValue = getLocationPriceDraft(row.location_id);
-                        setActionBusy(true);
+                        setBusyAction("price");
                         setAdjustError(null);
                         setMessage(null);
                         try {
@@ -399,12 +402,12 @@ function VariantCard({ print, locations }: VariantCardProps) {
                             (err as Error)?.message || "Unable to update location price."
                           );
                         } finally {
-                          setActionBusy(false);
+                          setBusyAction(null);
                         }
                       }}
                       className="rounded border border-neutral-300 px-2 py-1 text-[11px] font-semibold text-neutral-700 disabled:opacity-60"
                     >
-                      Update
+                      {busyAction === "price" ? "Updating..." : "Update"}
                     </button>
                   </div>
                 </div>
@@ -469,10 +472,11 @@ function VariantCard({ print, locations }: VariantCardProps) {
             <button
               type="button"
               onClick={queueAdd}
-              disabled={actionBusy}
+              disabled={busyAction !== null}
+              aria-busy={busyAction === "add"}
               className="rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
             >
-              Add
+              {busyAction === "add" ? "Adding..." : "Add"}
             </button>
           </div>
         </details>
@@ -581,10 +585,17 @@ function VariantCard({ print, locations }: VariantCardProps) {
             <button
               type="button"
               onClick={queueRemove}
-              disabled={actionBusy}
+              disabled={busyAction !== null}
+              aria-busy={busyAction === "remove"}
               className="rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-60"
             >
-              {removeForm.reason === "sold" ? "Mark as sold" : "Delete"}
+              {busyAction === "remove"
+                ? removeForm.reason === "sold"
+                  ? "Recording..."
+                  : "Deleting..."
+                : removeForm.reason === "sold"
+                  ? "Mark as sold"
+                  : "Delete"}
             </button>
           </div>
         </details>
@@ -642,10 +653,11 @@ function VariantCard({ print, locations }: VariantCardProps) {
             <button
               type="button"
               onClick={queueMove}
-              disabled={actionBusy}
+              disabled={busyAction !== null}
+              aria-busy={busyAction === "move"}
               className="rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 disabled:opacity-60"
             >
-              Move
+              {busyAction === "move" ? "Moving..." : "Move"}
             </button>
           </div>
         </details>

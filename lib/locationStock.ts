@@ -7,6 +7,15 @@ export type LocationRecord = {
   notes: string | null;
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function ensureDefaultLocation(): Promise<string> {
   const { rows } = await sql`
     INSERT INTO locations (name)
@@ -113,7 +122,12 @@ export async function adjustPrintStock({
     VALUES (${printId}, ${delta < 0 ? targetLocationId : null}, ${delta > 0 ? targetLocationId : null}, ${delta}, ${reason});
   `;
 
-  if (delta > 0 && locationId && previousLocationQty === 0 && locationQuantity > 0) {
+  if (
+    delta > 0 &&
+    locationId &&
+    previousLocationQty === 0 &&
+    locationQuantity > 0
+  ) {
     try {
       const { rows: locationRows } = await sql<{ name: string | null }>`
         SELECT name
@@ -149,32 +163,35 @@ export async function adjustPrintStock({
             `;
             const title = printRows[0]?.title || "Print";
             const size = printRows[0]?.size ? ` (${printRows[0]?.size})` : "";
-            const baseEnv =
-              process.env.NEXT_PUBLIC_BASE_URL ||
-              process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-              process.env.VERCEL_URL;
-            const baseUrl = baseEnv
-              ? baseEnv.startsWith("http://") || baseEnv.startsWith("https://")
-                ? baseEnv
-                : `https://${baseEnv}`
-              : "http://localhost:3000";
+            const printsUrl = "https://www.eric-fong.ca/prints";
+            const printsLinkText = "eric-fong.ca/prints";
             const transporter = createMailer();
             if (transporter) {
               for (const request of notifyRows) {
-              await transporter.sendMail({
-                from: toAddress,
-                to: request.email,
-                replyTo: toAddress,
-                subject: `${title}${size} is back in stock`,
-                text: [
-                  `Hi${request.name ? ` ${request.name.split(" ")[0]}` : ""},`,
-                  `Good news, ${title}${size} is back in stock at ${baseUrl}/prints.`,
-                  "Order yours today.",
-                  "Thanks, -Eric",
-                ].join("\n"),
-              });
+                const firstName = request.name ? ` ${request.name.split(" ")[0]}` : "";
+                const printLabel = `${title}${size}`;
+                await transporter.sendMail({
+                  from: toAddress,
+                  to: request.email,
+                  replyTo: toAddress,
+                  subject: `${title}${size} is back in stock`,
+                  text: [
+                    `Hi${firstName},`,
+                    `Good news, ${printLabel} is back in stock at ${printsLinkText}.`,
+                    "Order yours today.",
+                    "Thanks, -Eric",
+                  ].join("\n"),
+                  html: [
+                    `<p>Hi${escapeHtml(firstName)},</p>`,
+                    `<p>Good news, ${escapeHtml(printLabel)} is back in stock at <a href="${printsUrl}">${printsLinkText}</a>.</p>`,
+                    "<p>Order yours today.</p>",
+                    "<p>Thanks,<br />-Eric</p>",
+                  ].join(""),
+                });
               }
-              const idsParam = notifyRows.map((row) => row.id) as unknown as string;
+              const idsParam = notifyRows.map(
+                (row) => row.id,
+              ) as unknown as string;
               await sql`
                 UPDATE print_restock_requests
                 SET notified_at = NOW()
