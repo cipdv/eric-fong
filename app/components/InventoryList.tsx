@@ -70,12 +70,15 @@ type VariantCardProps = {
 function VariantCard({ print, locations }: VariantCardProps) {
   const router = useRouter();
   const defaultLocationId = locations[0]?.id ?? "";
+  const addInventoryDefaultLocationId =
+    locations.find((loc) => loc.name.trim().toLowerCase() === "online shop")
+      ?.id ?? defaultLocationId;
   const [locationPriceDrafts, setLocationPriceDrafts] = useState<
     Record<string, string>
   >({});
   const [addForm, setAddForm] = useState({
     quantity: "",
-    locationId: defaultLocationId,
+    locationId: addInventoryDefaultLocationId,
   });
   const [removeForm, setRemoveForm] = useState({
     quantity: "",
@@ -457,7 +460,7 @@ function VariantCard({ print, locations }: VariantCardProps) {
               className="w-full rounded border border-neutral-300 px-2 py-2 text-sm"
             />
             <select
-              value={addForm.locationId || defaultLocationId}
+              value={addForm.locationId || addInventoryDefaultLocationId}
               onChange={(e) =>
                 setAddForm((prev) => ({ ...prev, locationId: e.target.value }))
               }
@@ -727,6 +730,9 @@ export default function InventoryList({ inventory, locations }: Props) {
   const router = useRouter();
 
   const defaultLocationId = locations[0]?.id ?? "";
+  const newPrintDefaultLocationId =
+    locations.find((loc) => loc.name.trim().toLowerCase() === "online shop")
+      ?.id ?? defaultLocationId;
   const defaultPaintingId = inventory[0]?.id ?? "";
 
   useEffect(() => {
@@ -949,7 +955,7 @@ export default function InventoryList({ inventory, locations }: Props) {
             className="w-full rounded border border-neutral-300 px-2 py-2 text-sm"
           />
           <select
-            value={newPrintForm.locationId || defaultLocationId}
+            value={newPrintForm.locationId || newPrintDefaultLocationId}
             onChange={(e) =>
               setNewPrintForm((prev) => ({
                 ...prev,
@@ -992,7 +998,8 @@ export default function InventoryList({ inventory, locations }: Props) {
                   size,
                   price: newPrintForm.price,
                   initialQuantity: newPrintForm.quantity || 0,
-                  locationId: newPrintForm.locationId || defaultLocationId,
+                  locationId:
+                    newPrintForm.locationId || newPrintDefaultLocationId,
                 });
                 setNewPrintForm((prev) => ({
                   ...prev,
@@ -1000,7 +1007,7 @@ export default function InventoryList({ inventory, locations }: Props) {
                   height: "",
                   price: "",
                   quantity: "",
-                  locationId: defaultLocationId,
+                  locationId: newPrintDefaultLocationId,
                 }));
                 setNewPrintMessage({
                   text: "New print size added.",

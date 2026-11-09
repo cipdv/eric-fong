@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { sql } from "@vercel/postgres";
 import { adjustPrintStock } from "@/lib/locationStock";
+import { markOrderFulfilled } from "@/lib/fulfillOrder";
+import { verifyFulfillmentToken } from "@/lib/orderFulfillmentToken";
 
 async function getUserFromSession() {
   const cookieStore = await cookies();
@@ -25,46 +27,14 @@ async function getUserFromSession() {
 export async function fulfillOrder(orderId: string) {
   const userId = await getUserFromSession();
   if (!userId) throw new Error("Unauthorized");
-
-  try {
-    await sql`BEGIN`;
-
-    const { rows: items } = await sql`
-      SELECT order_items.print_id, order_items.quantity
-      FROM order_items
-      WHERE order_items.order_id = ${orderId};
-    `;
-
-    for (const item of items) {
-      if (!item?.print_id || item.quantity === null) continue;
-      await adjustPrintStock({
-        printId: item.print_id,
-        delta: -item.quantity,
-        reason: "fulfill",
-        orderId,
-      });
-    }
-
-    await sql`
-      UPDATE orders
-      SET status = 'fulfilled', updated_at = NOW()
-      WHERE id = ${orderId};
-    `;
-
-    await sql`COMMIT`;
-  } catch (error) {
-    try {
-      await sql`ROLLBACK`;
-    } catch {}
-    throw error;
-  }
-
-  revalidatePath("/app/dashboard/finances");
-  revalidatePath("/app/dashboard/orders");
-  revalidatePath("/app/dashboard");
-  return { ok: true };
+  return markOrderFulfilled(orderId);
 }
 
+export async function fulfillOrderFromEmail(token: string) {
+  const orderId = verifyFulfillmentToken(token, process.env.ORDER_ACTION_SECRET || "");
+  if (!orderId) throw new Error("This fulfillment link is invalid or expired. Use the latest reminder email or the orders dashboard.");
+  return markOrderFulfilled(orderId);
+}
 export async function deleteOrder(orderId: string) {
   const userId = await getUserFromSession();
   if (!userId) throw new Error("Unauthorized");

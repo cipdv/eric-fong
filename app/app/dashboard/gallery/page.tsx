@@ -36,6 +36,7 @@ type Painting = {
   price_original: string;
   prints: Print[];
   is_home_image?: boolean;
+  is_home_image_second?: boolean;
   is_home_page?: boolean | null;
   include_in_gallery?: boolean | null;
   status?: string;
@@ -80,6 +81,7 @@ async function getPaintings(userId: string): Promise<Painting[]> {
       p.created_at,
       p.status,
       p.is_home_image,
+      p.is_home_image_second,
       p.include_in_gallery,
       p.sale_order_id,
       p.gallery_sort_order,
@@ -98,129 +100,115 @@ async function getPaintings(userId: string): Promise<Painting[]> {
     ORDER BY p.gallery_sort_order ASC NULLS LAST, p.created_at DESC;
   `;
 
-  const paintings = await Promise.all(
-    rows.map(async (row) => {
-      let printRows: {
-        id: string;
-        size: string;
-        price: string;
-        quantity: number;
-        location_id: string | null;
-        location_quantity: number | null;
-        location_name: string | null;
-      }[];
+  const paintingIds = rows.map((row) => String(row.id));
+  const printsByPainting = new Map<string, Print[]>();
 
-      try {
-        const printResult = await sql<{
-          id: string;
-          size: string;
-          price: string;
-          quantity: number;
-          location_id: string | null;
-          location_quantity: number | null;
-          location_name: string | null;
-        }>`
-          SELECT
-            prints.id,
-            prints.size,
-            prints.price,
-            prints.quantity,
-            pls.location_id,
-            pls.quantity AS location_quantity,
-            loc.name AS location_name
-          FROM prints
-          LEFT JOIN print_location_stock AS pls ON pls.print_id = prints.id
-          LEFT JOIN locations AS loc ON loc.id = pls.location_id
-          WHERE painting_id = ${row.id}
-          ORDER BY prints.created_at ASC, loc.name ASC NULLS LAST;
-        `;
-        printRows = printResult.rows;
-      } catch {
-        const fallbackPrints = await sql<{
-          id: string;
-          size: string;
-          price: string;
-          quantity: number;
-        }>`
-          SELECT id, size, price, quantity
-          FROM prints
-          WHERE painting_id = ${row.id}
-          ORDER BY created_at ASC;
-        `;
-        printRows = fallbackPrints.rows.map((pr) => ({
-          ...pr,
-          location_id: null,
-          location_quantity: null,
-          location_name: null,
-        }));
+  if (paintingIds.length) {
+    const idsParam = paintingIds as unknown as string;
+    const { rows: printRows } = await sql<{
+      painting_id: string;
+      id: string;
+      size: string;
+      price: string;
+      quantity: number;
+      location_id: string | null;
+      location_quantity: number | null;
+      location_name: string | null;
+    }>`
+      SELECT
+        prints.painting_id,
+        prints.id,
+        prints.size,
+        prints.price,
+        prints.quantity,
+        pls.location_id,
+        pls.quantity AS location_quantity,
+        loc.name AS location_name
+      FROM prints
+      LEFT JOIN print_location_stock AS pls ON pls.print_id = prints.id
+      LEFT JOIN locations AS loc ON loc.id = pls.location_id
+      WHERE prints.painting_id = ANY(${idsParam}::uuid[])
+      ORDER BY prints.painting_id ASC, prints.created_at ASC, loc.name ASC NULLS LAST;
+    `;
+
+    const printMapsByPainting = new Map<
+      string,
+      Map<string, Print & { location_stock: PrintLocation[] }>
+    >();
+
+    for (const pr of printRows) {
+      const paintingId = String(pr.painting_id);
+      if (!printMapsByPainting.has(paintingId)) {
+        printMapsByPainting.set(paintingId, new Map());
       }
-
-      const grouped = new Map<
-        string,
-        Print & {
-          location_stock: PrintLocation[];
-        }
-      >();
-
-      for (const pr of printRows) {
-        if (!grouped.has(pr.id)) {
-          grouped.set(pr.id, {
-            id: pr.id,
-            size: pr.size,
-            price: pr.price,
-            quantity: Number(pr.quantity ?? 0),
-            location_stock: [],
-          });
-        }
-        if (pr.location_id) {
-          grouped.get(pr.id)!.location_stock!.push({
-            location_id: pr.location_id,
-            location_name: pr.location_name,
-            quantity: Number(pr.location_quantity ?? 0),
-          });
-        }
+      const paintingPrints = printMapsByPainting.get(paintingId)!;
+      if (!paintingPrints.has(pr.id)) {
+        paintingPrints.set(pr.id, {
+          id: pr.id,
+          size: pr.size,
+          price: pr.price,
+          quantity: Number(pr.quantity ?? 0),
+          location_stock: [],
+        });
       }
+      if (pr.location_id) {
+        paintingPrints.get(pr.id)!.location_stock!.push({
+          location_id: pr.location_id,
+          location_name: pr.location_name,
+          quantity: Number(pr.location_quantity ?? 0),
+        });
+      }
+    }
 
-      const printList = Array.from(grouped.values());
+    for (const [paintingId, printMap] of printMapsByPainting.entries()) {
+      printsByPainting.set(paintingId, Array.from(printMap.values()));
+    }
+  }
 
-      return {
-        id: row.id as string,
-        title: row.title as string,
-        image_url: row.image_url as string,
-        details: row.details as string,
-        medium: row.medium as string,
-        size_original: row.size_original as string,
-        price_original: row.price_original as string,
-        prints: printList,
-        is_home_image: (row.is_home_image ?? row.is_home_page) as boolean | undefined,
-        include_in_gallery: row.include_in_gallery as boolean | undefined,
-        status: row.status as string | undefined,
-        location_id: row.location_id ? String(row.location_id) : null,
-        location_name: row.location_name as string | null,
-        gallery_sort_order:
-          row.gallery_sort_order !== null && row.gallery_sort_order !== undefined
-            ? Number(row.gallery_sort_order)
-            : null,
-        location_start_date: row.location_start_date
-          ? String(row.location_start_date)
+  const paintings = rows.map((row) => {
+    const paintingId = String(row.id);
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      image_url: row.image_url as string,
+      details: row.details as string,
+      medium: row.medium as string,
+      size_original: row.size_original as string,
+      price_original: row.price_original as string,
+      prints: printsByPainting.get(paintingId) ?? [],
+      is_home_image: (row.is_home_image ?? row.is_home_page) as
+        | boolean
+        | undefined,
+      is_home_image_second: Boolean(row.is_home_image_second),
+      include_in_gallery: row.include_in_gallery as boolean | undefined,
+      status: row.status as string | undefined,
+      location_id: row.location_id ? String(row.location_id) : null,
+      location_name: row.location_name as string | null,
+      gallery_sort_order:
+        row.gallery_sort_order !== null && row.gallery_sort_order !== undefined
+          ? Number(row.gallery_sort_order)
           : null,
-        location_end_date: row.location_end_date ? String(row.location_end_date) : null,
-        location_commission_rate:
-          row.location_commission_rate !== null &&
-          row.location_commission_rate !== undefined
-            ? String(row.location_commission_rate)
-            : null,
-        sold_customer_name:
-          row.customer_first_name || row.customer_last_name
-            ? `${row.customer_first_name ?? ""} ${row.customer_last_name ?? ""}`.trim()
-            : null,
-        sold_price:
-          row.sold_price !== null && row.sold_price !== undefined
-            ? String(row.sold_price)
-            : null,
-      };
-    })
-  );
+      location_start_date: row.location_start_date
+        ? String(row.location_start_date)
+        : null,
+      location_end_date: row.location_end_date
+        ? String(row.location_end_date)
+        : null,
+      location_commission_rate:
+        row.location_commission_rate !== null &&
+        row.location_commission_rate !== undefined
+          ? String(row.location_commission_rate)
+          : null,
+      sold_customer_name:
+        row.customer_first_name || row.customer_last_name
+          ? `${row.customer_first_name ?? ""} ${row.customer_last_name ?? ""}`.trim()
+          : null,
+      sold_price:
+        row.sold_price !== null && row.sold_price !== undefined
+          ? String(row.sold_price)
+          : null,
+    };
+  });
 
   return paintings;
 }

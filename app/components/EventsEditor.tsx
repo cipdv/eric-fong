@@ -1,6 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
+import EventScheduleFields, { EventDateFields } from "@/app/components/EventScheduleFields";
+import type { EventType, SubEvent } from "@/lib/eventSchedule";
 import {
   createEventAction,
   deleteEventAction,
@@ -11,6 +13,10 @@ import {
 type EventRecord = {
   id: string;
   event_date: string;
+  end_date: string | null;
+  event_type: EventType;
+  add_to_cv: boolean;
+  sub_events: SubEvent[];
   start_time: string | null;
   end_time: string | null;
   name: string;
@@ -53,6 +59,8 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [createStatus, setCreateStatus] = useState<string | null>(null);
+  const [sendToEmailList, setSendToEmailList] = useState(false);
   const [eventFiles, setEventFiles] = useState<Record<string, File | null>>({});
   const [eventFilePreviews, setEventFilePreviews] = useState<Record<string, string>>(
     {}
@@ -63,6 +71,10 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
 
   const [newEvent, setNewEvent] = useState(() => ({
     event_date: today,
+    end_date: null as string | null,
+    event_type: "single_day" as EventType,
+    add_to_cv: false,
+    sub_events: [] as SubEvent[],
     start_time: "",
     end_time: "",
     name: "",
@@ -80,7 +92,7 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
     const upcoming: EventRecord[] = [];
     const past: EventRecord[] = [];
     for (const event of events) {
-      if (event.event_date >= today) {
+      if ((event.end_date || event.event_date) >= today) {
         upcoming.push(event);
       } else {
         past.push(event);
@@ -104,11 +116,18 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingId === "new") return;
     setMessage(null);
+    setCreateStatus(null);
     setSavingId("new");
     try {
       const formData = new FormData();
+      formData.set("send_to_email_list", String(sendToEmailList));
       formData.set("event_date", newEvent.event_date);
+      formData.set("end_date", newEvent.end_date ?? "");
+      formData.set("event_type", newEvent.event_type);
+      formData.set("add_to_cv", String(newEvent.add_to_cv));
+      formData.set("sub_events", JSON.stringify(newEvent.sub_events));
       formData.set("start_time", newEvent.start_time || "");
       formData.set("end_time", newEvent.end_time || "");
       formData.set("name", newEvent.name);
@@ -123,10 +142,18 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
       if (newEventFile) {
         formData.set("image_file", newEventFile);
       }
-      await createEventAction(formData);
-      await refreshEvents();
+      const result = await createEventAction(formData);
+      const delivery = result.delivery;
+      setCreateStatus(!delivery ? "Event saved." : delivery.total === 0
+        ? "Event saved. No emails sent because there are no subscribed recipients."
+        : `Event saved. Emails sent: ${delivery.sent}. Failed: ${delivery.failed}.${delivery.failed ? " The event is already saved; do not submit it again to retry emails." : ""}`);
+      setSendToEmailList(false);
       setNewEvent({
         event_date: today,
+    end_date: null as string | null,
+    event_type: "single_day" as EventType,
+    add_to_cv: false,
+    sub_events: [] as SubEvent[],
         start_time: "",
         end_time: "",
         name: "",
@@ -144,6 +171,11 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
       }
       setNewEventPreview(null);
       setNewEventFile(null);
+      try {
+        await refreshEvents();
+      } catch {
+        setCreateStatus((current) => `${current} Refresh the page to see the saved event.`);
+      }
     } catch (err) {
       setMessage((err as Error).message);
     } finally {
@@ -158,6 +190,10 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
       const formData = new FormData();
       formData.set("id", event.id);
       formData.set("event_date", event.event_date);
+      formData.set("end_date", event.end_date ?? "");
+      formData.set("event_type", event.event_type);
+      formData.set("add_to_cv", String(event.add_to_cv));
+      formData.set("sub_events", JSON.stringify(event.sub_events));
       formData.set("start_time", event.start_time || "");
       formData.set("end_time", event.end_time || "");
       formData.set("name", event.name);
@@ -264,19 +300,23 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
         {message ? (
           <p className="mt-2 text-sm text-red-600">{message}</p>
         ) : null}
+        {createStatus && <p role="status" className="mt-2 text-sm text-neutral-700">{createStatus}</p>}
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-neutral-800">Date</label>
-            <input
-              type="date"
-              required
-              value={newEvent.event_date}
-              onChange={(e) =>
-                setNewEvent((prev) => ({ ...prev, event_date: e.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
-          </div>
+          <EventDateFields
+            startDate={newEvent.event_date} endDate={newEvent.end_date}
+            eventType={newEvent.event_type}
+            addToCv={newEvent.add_to_cv}
+            onAddToCvChange={(add_to_cv) => setNewEvent((prev) => ({ ...prev, add_to_cv }))}
+            onEventTypeChange={(event_type) => setNewEvent((prev) => ({ ...prev, event_type, add_to_cv: event_type === "single_day" ? false : prev.add_to_cv, end_date: event_type === "single_day" ? null : prev.end_date || prev.event_date }))}
+            onStartDateChange={(event_date) => setNewEvent((prev) => ({ ...prev, event_date }))}
+            onEndDateChange={(end_date) => setNewEvent((prev) => ({ ...prev, end_date }))}
+          >
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-800">
+              <input type="checkbox" checked={sendToEmailList} disabled={savingId === "new"}
+                onChange={(event) => setSendToEmailList(event.target.checked)} />
+              Send to email list?
+            </label>
+          </EventDateFields>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium text-neutral-800">Start time</label>
@@ -426,6 +466,10 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
               className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
           </div>
+          <EventScheduleFields
+            startDate={newEvent.event_date} subEvents={newEvent.sub_events}
+            onSubEventsChange={(sub_events) => setNewEvent((prev) => ({ ...prev, sub_events }))}
+          />
         </div>
         <div className="mt-4">
           <button
@@ -438,13 +482,17 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
         </div>
       </form>
 
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-neutral-900">Upcoming events</h2>
-        {upcomingEvents.length === 0 ? (
-          <p className="text-sm text-neutral-600">No upcoming events.</p>
+      {[
+        { title: "Current and upcoming events", entries: upcomingEvents, emptyMessage: "No current or upcoming events." },
+        { title: "Past events", entries: pastEvents, emptyMessage: "No past events." },
+      ].map((group) => (
+      <div key={group.title} className="space-y-4">
+        <h2 className="text-lg font-semibold text-neutral-900">{group.title}</h2>
+        {group.entries.length === 0 ? (
+          <p className="text-sm text-neutral-600">{group.emptyMessage}</p>
         ) : (
           <div className="space-y-3">
-            {upcomingEvents.map((event) => {
+            {group.entries.map((event) => {
               const isExpanded = expandedId === event.id;
               return (
                 <div
@@ -461,7 +509,7 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
                         {event.name}
                       </div>
                       <div className="text-xs text-neutral-600">
-                        {event.event_date}
+                        {event.event_date}{event.end_date ? ` – ${event.end_date}` : ""}
                         {event.start_time ? ` · ${event.start_time}` : ""}
                         {event.end_time ? `–${event.end_time}` : ""}
                       </div>
@@ -478,17 +526,15 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
                   {isExpanded ? (
                     <div className="border-t border-neutral-200 px-4 py-4">
                       <div className="grid gap-3 md:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="text-sm font-medium text-neutral-800">Date</label>
-                          <input
-                            type="date"
-                            value={event.event_date}
-                            onChange={(e) =>
-                              updateEventField(event.id, "event_date", e.target.value)
-                            }
-                            className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          />
-                        </div>
+                        <EventDateFields
+                          startDate={event.event_date} endDate={event.end_date}
+                          eventType={event.event_type}
+                          addToCv={event.add_to_cv}
+                          onAddToCvChange={(add_to_cv) => setEvents((prev) => prev.map((item) => item.id === event.id ? { ...item, add_to_cv } : item))}
+                          onEventTypeChange={(event_type) => setEvents((prev) => prev.map((item) => item.id === event.id ? { ...item, event_type, add_to_cv: event_type === "single_day" ? false : item.add_to_cv, end_date: event_type === "single_day" ? null : item.end_date || item.event_date } : item))}
+                          onStartDateChange={(value) => updateEventField(event.id, "event_date", value)}
+                          onEndDateChange={(value) => updateEventField(event.id, "end_date", value)}
+                        />
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label className="text-sm font-medium text-neutral-800">Start</label>
@@ -546,6 +592,7 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
                             Event image
                           </label>
                           <div className="grid gap-3 md:grid-cols-2">
+
                             <div className="space-y-2">
                               <select
                                 value={event.image_url || ""}
@@ -650,6 +697,10 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
                             className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                           />
                         </div>
+                        <EventScheduleFields
+                          startDate={event.event_date} subEvents={event.sub_events}
+                          onSubEventsChange={(sub_events) => setEvents((prev) => prev.map((item) => item.id === event.id ? { ...item, sub_events } : item))}
+                        />
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                         <button
@@ -677,44 +728,7 @@ export default function EventsEditor({ initialEvents, galleryImages }: Props) {
           </div>
         )}
       </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-neutral-900">Past events</h2>
-        {pastEvents.length === 0 ? (
-          <p className="text-sm text-neutral-600">No past events.</p>
-        ) : (
-          <div className="space-y-3">
-            {pastEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-sm"
-              >
-                <div>
-                  <div className="text-sm font-semibold text-neutral-900">{event.name}</div>
-                  <div className="text-xs text-neutral-600">
-                    {event.event_date}
-                    {event.start_time ? ` · ${event.start_time}` : ""}
-                    {event.end_time ? `–${event.end_time}` : ""}
-                  </div>
-                  {event.location || formatAddress(event) ? (
-                    <div className="text-xs text-neutral-500">
-                      {[event.location, formatAddress(event)].filter(Boolean).join(" · ")}
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(event.id)}
-                  disabled={deletingId === event.id}
-                  className="rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-                >
-                  {deletingId === event.id ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      ))}
     </div>
   );
 }

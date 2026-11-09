@@ -71,7 +71,7 @@ export async function getCvEntries(userId: string): Promise<CvEntry[]> {
 
 export async function createCvEntry(input: {
   section: string;
-  entry_date?: string | null;
+  entry_date: string;
   title: string;
   venue?: string | null;
   location?: string | null;
@@ -82,8 +82,9 @@ export async function createCvEntry(input: {
 
   const section = input.section.trim();
   const title = input.title.trim();
-  if (!section || !title) {
-    throw new Error("Section and title are required.");
+  const entryDate = input.entry_date?.trim();
+  if (!section || !title || !entryDate) {
+    throw new Error("Section, date, and title are required.");
   }
 
   const { rows } = await sql`
@@ -99,7 +100,7 @@ export async function createCvEntry(input: {
     VALUES (
       ${userId},
       ${section},
-      ${input.entry_date?.trim() || null},
+      ${entryDate},
       ${title},
       ${input.venue?.trim() || null},
       ${input.location?.trim() || null},
@@ -109,13 +110,14 @@ export async function createCvEntry(input: {
   `;
 
   revalidatePath("/app/dashboard/cv");
+  revalidatePath("/cv");
   return { id: rows[0]?.id as string };
 }
 
 export async function updateCvEntry(input: {
   entryId: string;
   section: string;
-  entry_date?: string | null;
+  entry_date: string;
   title: string;
   venue?: string | null;
   location?: string | null;
@@ -126,14 +128,15 @@ export async function updateCvEntry(input: {
 
   const section = input.section.trim();
   const title = input.title.trim();
-  if (!section || !title) {
-    throw new Error("Section and title are required.");
+  const entryDate = input.entry_date?.trim();
+  if (!section || !title || !entryDate) {
+    throw new Error("Section, date, and title are required.");
   }
 
   const updated = await sql`
     UPDATE cv_entries
     SET section = ${section},
-        entry_date = ${input.entry_date?.trim() || null},
+        entry_date = ${entryDate},
         title = ${title},
         venue = ${input.venue?.trim() || null},
         location = ${input.location?.trim() || null},
@@ -148,6 +151,7 @@ export async function updateCvEntry(input: {
   }
 
   revalidatePath("/app/dashboard/cv");
+  revalidatePath("/cv");
   return { ok: true };
 }
 
@@ -162,5 +166,6 @@ export async function deleteCvEntry(entryId: string) {
   `;
 
   revalidatePath("/app/dashboard/cv");
+  revalidatePath("/cv");
   return { ok: true };
 }

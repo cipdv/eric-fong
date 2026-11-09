@@ -1,15 +1,25 @@
 import Image from "next/image";
 import { sql } from "@vercel/postgres";
+import type { EventType, SubEvent } from "@/lib/eventSchedule";
+import { groupHomeEvents } from "@/lib/homeEvents";
+
+export const dynamic = "force-dynamic";
 
 type Painting = {
+  id: string;
   image_url: string | null;
   title: string | null;
+  is_home_image?: boolean;
+  is_home_image_second?: boolean;
 };
 
 type EventRecord = {
   id: string;
   name: string;
   event_date: string;
+  end_date: string | null;
+  event_type: EventType;
+  sub_events: SubEvent[];
   start_time: string | null;
   end_time: string | null;
   location: string | null;
@@ -22,27 +32,38 @@ type EventRecord = {
   image_url: string | null;
 };
 
-async function getHomePainting(): Promise<Painting | null> {
+async function getHomePaintings(): Promise<Painting[]> {
   try {
-    const { rows } = await sql`
-      SELECT image_url, title
+    const { rows } = await sql<Painting>`
+      SELECT id, image_url, title, is_home_image, is_home_image_second
       FROM paintings
-      WHERE is_home_image = TRUE
-      ORDER BY created_at DESC
-      LIMIT 1;
+      WHERE NULLIF(TRIM(image_url), '') IS NOT NULL
+        AND (is_home_image = TRUE OR is_home_image_second = TRUE
+          OR COALESCE(include_in_gallery, TRUE))
+      ORDER BY is_home_image DESC NULLS LAST,
+        is_home_image_second DESC NULLS LAST, created_at DESC, id
+      LIMIT 3;
     `;
-    if (rows[0]) return rows[0] as Painting;
+    const first = rows.find((row) => row.is_home_image)
+      ?? rows.find((row) => !row.is_home_image_second)
+      ?? rows[0];
+    if (!first) return [];
+    const second = rows.find((row) => row.id !== first.id && row.is_home_image_second)
+      ?? rows.find((row) => row.id !== first.id);
+    return second ? [first, second] : [first];
   } catch {
     // if column doesn't exist, fall through to fallback query
   }
 
-  const fallback = await sql`
-    SELECT image_url, title
+  const fallback = await sql<Painting>`
+    SELECT id, image_url, title
     FROM paintings
-    ORDER BY created_at DESC
-    LIMIT 1;
+    WHERE NULLIF(TRIM(image_url), '') IS NOT NULL
+      AND (is_home_image = TRUE OR COALESCE(include_in_gallery, TRUE))
+    ORDER BY is_home_image DESC NULLS LAST, created_at DESC, id
+    LIMIT 2;
   `;
-  return fallback.rows[0] as Painting | null;
+  return fallback.rows;
 }
 
 async function getUpcomingEvents(): Promise<EventRecord[]> {
@@ -52,6 +73,10 @@ async function getUpcomingEvents(): Promise<EventRecord[]> {
         id,
         name,
         to_char(event_date, 'YYYY-MM-DD') AS event_date,
+        to_jsonb(events)->>'end_date' AS end_date,
+      COALESCE(to_jsonb(events)->>'event_type',
+        CASE WHEN to_jsonb(events)->>'end_date' IS NULL THEN 'single_day' ELSE 'exhibition' END) AS event_type,
+        COALESCE(to_jsonb(events)->'sub_events', '[]'::jsonb) AS sub_events,
         to_char(start_time, 'HH24:MI') AS start_time,
         to_char(end_time, 'HH24:MI') AS end_time,
         location,
@@ -63,8 +88,10 @@ async function getUpcomingEvents(): Promise<EventRecord[]> {
         details,
         image_url
       FROM events
-      WHERE event_date >= CURRENT_DATE
-      ORDER BY event_date ASC, start_time ASC NULLS LAST, created_at DESC;
+      WHERE COALESCE((to_jsonb(events)->>'end_date')::date, event_date)
+        >= (NOW() AT TIME ZONE 'America/Toronto')::date
+      ORDER BY CASE WHEN event_date <= (NOW() AT TIME ZONE 'America/Toronto')::date THEN 0 ELSE 1 END,
+        event_date ASC, start_time ASC NULLS LAST, created_at DESC, id;
     `;
     return rows.map((row) => ({
       ...row,
@@ -102,7 +129,7 @@ async function getRandomPaintingImage(): Promise<string | null> {
 }
 
 export default function Home() {
-  const paintingPromise = getHomePainting();
+  const paintingPromise = getHomePaintings();
   const eventsPromise = getUpcomingEvents();
   const fallbackImagePromise = getRandomPaintingImage();
   return (
@@ -121,15 +148,18 @@ async function HomeImage({
   eventsPromise,
   fallbackImagePromise,
 }: {
-  paintingPromise: Promise<Painting | null>;
+  paintingPromise: Promise<Painting[]>;
   eventsPromise: Promise<EventRecord[]>;
   fallbackImagePromise: Promise<string | null>;
 }) {
-  const painting = await paintingPromise;
+  const paintings = await paintingPromise;
   const events = await eventsPromise;
   const fallbackImage = await fallbackImagePromise;
-  const src = painting?.image_url || "/1_1748550734_99480.webp";
-  const title = painting?.title || "Untitled";
+  const homePaintings = paintings.length ? paintings : [{
+    id: "fallback",
+    image_url: "/1_1748550734_99480.webp",
+    title: "Untitled",
+  }];
   const formatDate = (value: string) => {
     const [year, month, day] = value.split("-").map(Number);
     if (!year || !month || !day) return value;
@@ -170,92 +200,102 @@ async function HomeImage({
     return `${startLabel} - ${endLabel}`;
   };
 
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const eventGroups = groupHomeEvents(events, today);
   return (
-    <div className="inline-flex flex-col items-start space-y-3">
-      <a href="/gallery" className="block transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-white">
-        <Image
-          src={src}
-          alt={title ? `${title} painting` : "Homepage painting"}
-          width={1400}
-          height={1400}
-          className="block h-auto max-h-[75vh] w-auto max-w-full sm:max-w-[80vw] object-contain"
-          priority
-        />
-      </a>
-      <p className="text-left text-sm font-medium text-neutral-600">
-        {title}
-      </p>
-      {events.length ? (
-        <div className="mt-8 w-full max-w-3xl space-y-5">
-          <div className="text-xl font-semibold text-neutral-900 sm:text-2xl">
-            Upcoming events
-          </div>
-          <div className="space-y-4">
-            {events.map((event) => {
+    <div className="flex w-full flex-col items-start gap-12">
+      {eventGroups.map((group, groupIndex) => (
+        <section key={group.title} className="w-full space-y-3 rounded-xl border border-neutral-200 bg-white p-5 sm:p-7" aria-labelledby={`event-group-${groupIndex}`}>
+          <h1 id={`event-group-${groupIndex}`} className="text-lg font-medium tracking-wide text-neutral-600 sm:text-xl">
+            {group.title}:
+          </h1>
+          <div className="space-y-10">
+            {group.events.map((event, eventIndex) => {
+              const address = [
+                [event.street_number, event.street_name].filter(Boolean).join(" "),
+                event.city, event.province, event.postal_code,
+              ].filter(Boolean).join(", ");
               const timeLabel = formatTimeRange(event.start_time, event.end_time);
-              const streetLine = [event.street_number, event.street_name]
-                .filter(Boolean)
-                .join(" ");
-              const cityLine = [event.city, event.province].filter(Boolean).join(", ");
-              const eventImage =
-                event.image_url || fallbackImage || "/1_1748550734_99480.webp";
               return (
-                <div
-                  key={event.id}
-                  className="flex flex-col gap-4 border border-neutral-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start"
-                >
-                  <div className="relative flex h-44 w-full shrink-0 items-center justify-center bg-neutral-100 sm:h-36 sm:w-48">
-                    <Image
-                      src={eventImage}
-                      alt={event.name}
-                      width={384}
-                      height={288}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                  <div className="space-y-1 text-sm font-medium text-neutral-800">
-                    <div className="text-lg font-semibold text-neutral-900 sm:text-xl">
-                      {event.name}
-                    </div>
-                    <div className="space-y-0.5 text-sm font-medium text-neutral-800">
-                      <div>{formatDate(event.event_date)}</div>
-                      {timeLabel ? (
-                        <div>{timeLabel}</div>
-                      ) : (
-                        <div className="text-neutral-600">All day</div>
+                <article key={event.id} className="space-y-6">
+                  <h2 className="text-3xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-4xl">{event.name}</h2>
+                  <div className="grid items-start gap-6 lg:grid-cols-2">
+                  <Image
+                    src={event.image_url || fallbackImage || "/1_1748550734_99480.webp"}
+                    alt={event.name}
+                    width={1400} height={1400} sizes="(min-width: 1024px) 35vw, 90vw"
+                    priority={groupIndex === 0 && eventIndex === 0}
+                    className="block h-auto max-h-[75vh] w-auto max-w-full object-contain"
+                  />
+                  <div className="min-w-0 space-y-6">
+                    <dl className="grid gap-5 text-base sm:grid-cols-2 lg:grid-cols-1">
+                      <div className="space-y-1">
+                        <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">When</dt>
+                        <dd className="font-medium leading-relaxed text-neutral-900">
+                          <time dateTime={event.event_date}>{formatDate(event.event_date)}</time>
+                          {event.end_date && event.end_date !== event.event_date && (
+                            <> &ndash; <time dateTime={event.end_date}>{formatDate(event.end_date)}</time></>
+                          )}
+                          {timeLabel && <span className="mt-1 block font-normal text-neutral-600">{timeLabel}</span>}
+                        </dd>
+                      </div>
+                      {(event.location || address) && (
+                        <div className="space-y-1">
+                          <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Where</dt>
+                          <dd className="leading-relaxed text-neutral-900">
+                            {event.location && <span className="block font-medium">{event.location}</span>}
+                            {address && <span className="block text-neutral-600">{address}</span>}
+                          </dd>
+                        </div>
                       )}
-                    </div>
-                    {event.details ? (
-                      <div className="pt-2 text-sm font-medium text-neutral-800 leading-relaxed">
-                        {event.details}
+                    </dl>
+                    {event.details && <p className="max-w-prose whitespace-pre-line text-base leading-7 text-neutral-700">{event.details}</p>}
+                    {event.sub_events.length > 0 && (
+                      <div className="space-y-4 border-t border-neutral-200 pt-5">
+                        <h3 className="text-lg font-semibold text-neutral-900">During this event</h3>
+                        {[...event.sub_events].sort((a, b) =>
+                          a.event_date.localeCompare(b.event_date) || a.start_time.localeCompare(b.start_time)
+                        ).map((sub, index) => (
+                          <section key={sub.id || index} className="space-y-2 rounded-lg border border-neutral-200 bg-white p-4 text-base leading-relaxed text-neutral-700">
+                            <h4 className="text-lg font-semibold text-neutral-900">{sub.title}</h4>
+                            <p className="font-medium">
+                              <time dateTime={sub.event_date}>{formatDate(sub.event_date)}</time>
+                              {(sub.start_time || sub.end_time) && <> &middot; {formatTimeRange(sub.start_time, sub.end_time)}</>}
+                            </p>
+                            {sub.location && <p>{sub.location}</p>}
+                            {sub.details && <p className="whitespace-pre-line leading-7">{sub.details}</p>}
+                          </section>
+                        ))}
                       </div>
-                    ) : null}
-                    {event.location || streetLine || cityLine ? (
-                      <div className="pt-3 space-y-0.5 text-sm font-medium text-neutral-800">
-                        {event.location ? (
-                          <div className="font-semibold text-neutral-800">
-                            {event.location}
-                          </div>
-                        ) : null}
-                        {streetLine ? <div>{streetLine}</div> : null}
-                        {cityLine ? <div>{cityLine}</div> : null}
-                      </div>
-                    ) : null}
-                    <div className="pt-3">
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center border border-neutral-900 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-900 transition hover:bg-neutral-900 hover:text-white"
-                      >
-                        RSVP
-                      </button>
-                    </div>
+                    )}
                   </div>
-                </div>
+                  </div>
+                </article>
               );
             })}
           </div>
-        </div>
-      ) : null}
+        </section>
+      ))}
+      <div className="grid w-full grid-cols-1 gap-6">
+        {homePaintings.map((painting, index) => (
+          <figure key={painting.id} className="min-w-0 space-y-3">
+            <a href="/gallery" className="block transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-white">
+              <Image
+                src={painting.image_url!}
+                alt={painting.title ? `${painting.title} painting` : "Homepage painting"}
+                width={1400} height={1400} sizes="90vw"
+                priority={eventGroups.length === 0 && index === 0}
+                className="block h-auto max-h-[75vh] w-auto max-w-full object-contain"
+              />
+            </a>
+            <figcaption className="text-left text-sm font-medium text-neutral-600">
+              {painting.title || "Untitled"}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

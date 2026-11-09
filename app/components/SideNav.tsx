@@ -113,6 +113,12 @@ export function SideNav() {
             Update events
           </Link>
           <Link
+            href="/app/dashboard/email-list"
+            className="block transition hover:text-neutral-600"
+          >
+            Email list
+          </Link>
+          <Link
             href="/app/dashboard/inventory"
             className="block transition hover:text-neutral-600"
           >
@@ -241,7 +247,7 @@ export function SideNav() {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-40 shrink-0 bg-white/90 px-5 py-12 text-left lg:block">
+      <aside className="sticky top-12 hidden max-h-[calc(100dvh-6rem)] w-40 shrink-0 self-start overflow-y-auto bg-white/90 px-5 py-12 text-left lg:block">
         <Link
           href={isLoggedIn ? "/app/dashboard" : "/"}
           className="group block whitespace-nowrap text-neutral-900 transition hover:text-neutral-700"

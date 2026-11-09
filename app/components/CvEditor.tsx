@@ -39,6 +39,7 @@ const sectionOptions = [
   "Awards and Grants",
   "Press",
   "Collaborative Work",
+  "Collections",
 ];
 
 export default function CvEditor({ entries }: Props) {
@@ -49,6 +50,7 @@ export default function CvEditor({ entries }: Props) {
     null
   );
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -91,19 +93,24 @@ export default function CvEditor({ entries }: Props) {
   const handleSave = async (entryId: string) => {
     const draft = drafts[entryId];
     if (!draft) return;
+    if (!draft.section.trim() || !draft.entry_date.trim() || !draft.title.trim()) {
+      setMessage({ text: "Section, date, and title are required.", tone: "error" });
+      return;
+    }
     setSavingId(entryId);
     setMessage(null);
     try {
       await updateCvEntry({
         entryId,
         section: draft.section,
-        entry_date: draft.entry_date || null,
+        entry_date: draft.entry_date,
         title: draft.title,
         venue: draft.venue || null,
         location: draft.location || null,
         details: draft.details || null,
       });
       setMessage({ text: "Entry updated.", tone: "success" });
+      setEditingId(null);
       router.refresh();
     } catch (err) {
       setMessage({ text: (err as Error).message, tone: "error" });
@@ -119,6 +126,7 @@ export default function CvEditor({ entries }: Props) {
     try {
       await deleteCvEntry(entryId);
       setMessage({ text: "Entry removed.", tone: "success" });
+      setEditingId((current) => current === entryId ? null : current);
       router.refresh();
     } catch (err) {
       setMessage({ text: (err as Error).message, tone: "error" });
@@ -128,8 +136,8 @@ export default function CvEditor({ entries }: Props) {
   };
 
   const handleAdd = async () => {
-    if (!newEntry.section.trim() || !newEntry.title.trim()) {
-      setMessage({ text: "Section and title are required.", tone: "error" });
+    if (!newEntry.section.trim() || !newEntry.entry_date.trim() || !newEntry.title.trim()) {
+      setMessage({ text: "Section, date, and title are required.", tone: "error" });
       return;
     }
     setAdding(true);
@@ -137,7 +145,7 @@ export default function CvEditor({ entries }: Props) {
     try {
       await createCvEntry({
         section: newEntry.section,
-        entry_date: newEntry.entry_date || null,
+        entry_date: newEntry.entry_date,
         title: newEntry.title,
         venue: newEntry.venue || null,
         location: newEntry.location || null,
@@ -157,6 +165,9 @@ export default function CvEditor({ entries }: Props) {
     <div className="space-y-6">
       <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-neutral-900">Add CV entry</h2>
+        <p className="mt-1 text-sm text-neutral-600">
+          Choose a section and enter a date and title. All other fields are optional.
+        </p>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <label className="space-y-1 text-sm font-medium text-neutral-800">
             <span>Section</span>
@@ -174,9 +185,9 @@ export default function CvEditor({ entries }: Props) {
             </select>
           </label>
           <label className="space-y-1 text-sm font-medium text-neutral-800">
-            <span>Date</span>
+            <span>Date (required)</span>
             <input
-              type="date"
+              type="date" required
               value={newEntry.entry_date}
               onChange={(e) =>
                 setNewEntry((prev) => ({ ...prev, entry_date: e.target.value }))
@@ -185,9 +196,9 @@ export default function CvEditor({ entries }: Props) {
             />
           </label>
           <label className="space-y-1 text-sm font-medium text-neutral-800">
-            <span>Title</span>
+            <span>Title (required)</span>
             <input
-              value={newEntry.title}
+              required value={newEntry.title}
               onChange={(e) => setNewEntry((prev) => ({ ...prev, title: e.target.value }))}
               placeholder="Entry title or description"
               className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
@@ -253,13 +264,14 @@ export default function CvEditor({ entries }: Props) {
               <div className="text-sm font-semibold text-neutral-900">{section}</div>
               {sectionEntries.map((entry) => {
                 const draft = drafts[entry.id];
-                if (!draft) return null;
+                const isEditing = editingId === entry.id && !!draft;
                 return (
                   <div
                     key={entry.id}
                     className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
                   >
-                    <div className="grid gap-3 lg:grid-cols-2">
+                    {isEditing ? (
+                    <fieldset disabled={savingId === entry.id || deletingId === entry.id} className="grid gap-3 lg:grid-cols-2">
                       <label className="space-y-1 text-sm font-medium text-neutral-800">
                         <span>Section</span>
                         <select
@@ -276,18 +288,18 @@ export default function CvEditor({ entries }: Props) {
                         </select>
                       </label>
                       <label className="space-y-1 text-sm font-medium text-neutral-800">
-                        <span>Date</span>
+                        <span>Date (required)</span>
                         <input
-                          type="date"
+                          type="date" required
                           value={draft.entry_date}
                           onChange={(e) => updateDraft(entry.id, "entry_date", e.target.value)}
                           className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         />
                       </label>
                       <label className="space-y-1 text-sm font-medium text-neutral-800">
-                        <span>Title</span>
+                        <span>Title (required)</span>
                         <input
-                          value={draft.title}
+                          required value={draft.title}
                           onChange={(e) => updateDraft(entry.id, "title", e.target.value)}
                           className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         />
@@ -317,20 +329,67 @@ export default function CvEditor({ entries }: Props) {
                           className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         />
                       </label>
-                    </div>
+                    </fieldset>
+                    ) : (
+                      <div className="space-y-2 text-sm text-neutral-700">
+                        <h3 className="font-semibold text-neutral-900">{entry.title}</h3>
+                        <p>{entry.entry_date ? <time dateTime={entry.entry_date}>{entry.entry_date}</time> : "No date"}</p>
+                        {entry.venue && <p><span className="font-medium">Venue:</span> {entry.venue}</p>}
+                        {entry.location && <p><span className="font-medium">Location:</span> {entry.location}</p>}
+                        {entry.details && <p className="whitespace-pre-line">{entry.details}</p>}
+                      </div>
+                    )}
+                    {isEditing && message?.tone === "error" && (
+                      <p role="alert" className="mt-3 text-sm text-red-600">{message.text}</p>
+                    )}
                     <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {isEditing ? (
+                      <>
                       <button
                         type="button"
                         onClick={() => handleSave(entry.id)}
-                        disabled={savingId === entry.id}
+                        disabled={savingId !== null || deletingId !== null}
                         className="rounded bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
                       >
                         {savingId === entry.id ? "Saving..." : "Save changes"}
                       </button>
                       <button
                         type="button"
+                        onClick={() => { setEditingId(null); setMessage(null); }}
+                        disabled={savingId !== null || deletingId !== null}
+                        className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                      </>
+                      ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [entry.id]: {
+                              section: entry.section,
+                              entry_date: entry.entry_date ?? "",
+                              title: entry.title,
+                              venue: entry.venue ?? "",
+                              location: entry.location ?? "",
+                              details: entry.details ?? "",
+                            },
+                          }));
+                          setEditingId(entry.id);
+                          setMessage(null);
+                        }}
+                        disabled={savingId !== null || deletingId !== null}
+                        className="rounded bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-60"
+                      >
+                        Edit
+                      </button>
+                      )}
+                      <button
+                        type="button"
                         onClick={() => handleDelete(entry.id)}
-                        disabled={deletingId === entry.id}
+                        disabled={savingId !== null || deletingId !== null}
                         className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
                       >
                         {deletingId === entry.id ? "Deleting..." : "Delete"}

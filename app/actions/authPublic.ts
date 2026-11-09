@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@vercel/postgres";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
+import { TEMPORARY_PASSWORDLESS_LOGIN } from "@/lib/authConfig";
 
 async function createSession(userId: string) {
   const token = crypto.randomUUID();
@@ -71,11 +72,11 @@ export async function registerAction(input: {
   return { ok: true };
 }
 
-export async function loginAction(input: { email: string; password: string }) {
+export async function loginAction(input: { email: string; password?: string }) {
   const email = input.email.trim().toLowerCase();
   const password = input.password;
   if (!email) throw new Error("Email is required.");
-  if (!password) throw new Error("Password is required.");
+  if (!TEMPORARY_PASSWORDLESS_LOGIN && !password) throw new Error("Password is required.");
 
   const user = await fetchExistingUser(email);
   const storedHash = user?.password_hash?.trim() || null;
@@ -83,18 +84,20 @@ export async function loginAction(input: { email: string; password: string }) {
   if (!user) {
     throw new Error("Invalid credentials.");
   }
-  if (!storedHash) {
-    throw new Error("Invalid credentials.");
-  }
+  if (!TEMPORARY_PASSWORDLESS_LOGIN) {
+    if (!storedHash || !password) {
+      throw new Error("Invalid credentials.");
+    }
 
-  let matches = false;
-  try {
-    matches = await bcrypt.compare(password, storedHash);
-  } catch {
-    matches = false;
-  }
-  if (!matches) {
-    throw new Error("Invalid credentials.");
+    let matches = false;
+    try {
+      matches = await bcrypt.compare(password, storedHash);
+    } catch {
+      matches = false;
+    }
+    if (!matches) {
+      throw new Error("Invalid credentials.");
+    }
   }
 
   const token = await createSession(user.id);

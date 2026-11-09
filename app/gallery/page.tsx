@@ -16,7 +16,6 @@ type Painting = {
   details: string;
   medium: string;
   size_original: string;
-  price_original: string;
   status: string;
   prints_available: boolean;
   include_in_gallery: boolean;
@@ -25,7 +24,7 @@ type Painting = {
 
 async function getPaintings(): Promise<Painting[]> {
   const { rows } = await sql`
-    SELECT id, title, image_url, details, medium, size_original, price_original, status, prints_available, include_in_gallery
+    SELECT id, title, image_url, details, medium, size_original, status, prints_available, include_in_gallery
     FROM paintings
     WHERE include_in_gallery IS TRUE
     ORDER BY gallery_sort_order ASC NULLS LAST, created_at DESC NULLS LAST, title ASC;
@@ -51,7 +50,6 @@ async function getPaintings(): Promise<Painting[]> {
         details: row.details as string,
         medium: row.medium as string,
         size_original: row.size_original as string,
-        price_original: row.price_original as string,
         status: row.status as string,
         prints_available: row.prints_available as boolean,
         include_in_gallery: row.include_in_gallery as boolean,
@@ -126,14 +124,6 @@ export default async function GalleryPage() {
                   </div>
                   {isAvailableForSale ? (
                     <div>
-                      <span className="font-semibold text-neutral-900">
-                        Price
-                      </span>
-                      <div>
-                        {painting.price_original
-                          ? `$${painting.price_original}`
-                          : "-"}
-                      </div>
                       <div className="mt-1">
                         <Link
                           href={{

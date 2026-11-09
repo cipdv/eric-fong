@@ -22,6 +22,7 @@ async function getCvEntries(): Promise<CvEntry[]> {
       details
     FROM cv_entries
     ORDER BY
+      CASE WHEN section = 'Collections' THEN 1 ELSE 0 END ASC,
       section ASC,
       entry_date DESC NULLS LAST,
       title ASC;
@@ -60,7 +61,9 @@ export default async function CvPage() {
       {/* <h1 className="text-2xl font-semibold text-neutral-900">CV</h1> */}
       {Object.entries(grouped).map(([section, sectionEntries]) => (
         <section key={section} className="space-y-3">
-          <h2 className="text-lg font-semibold text-neutral-900">{section}</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">
+            {section === "Collections" ? "Special Collections" : section}
+          </h2>
           <div className="space-y-3">
             {sectionEntries.map((entry) => (
               <div

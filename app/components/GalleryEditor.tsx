@@ -4,25 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { snapCenterToCursor, restrictToWindowEdges } from "@dnd-kit/modifiers";
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
   adjustPrintInventoryAction,
   createLocation,
   deletePaintingAction,
@@ -33,6 +14,7 @@ import {
   updateLocationAction,
   updatePaintingAction,
 } from "@/app/actions/gallery";
+import GallerySorter from "@/app/components/gallery/GallerySorter";
 
 type Print = {
   id: string;
@@ -56,6 +38,7 @@ type Painting = {
   price_original: string;
   prints: Print[];
   is_home_image?: boolean;
+  is_home_image_second?: boolean;
   is_home_page?: boolean | null;
   include_in_gallery?: boolean | null;
   status?: string;
@@ -100,66 +83,6 @@ function idToString(v: unknown) {
   return v === null || v === undefined ? "" : String(v);
 }
 
-function SortableTile({
-  id,
-  title,
-  imageUrl,
-  onClick,
-  disabled,
-  isSelected,
-}: {
-  id: string;
-  title: string;
-  imageUrl: string;
-  onClick: () => void;
-  disabled?: boolean;
-  isSelected?: boolean;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    touchAction: "none",
-  };
-
-  return (
-    <button
-      type="button"
-      ref={setNodeRef}
-      style={style}
-      onClick={() => {
-        if (isDragging) return;
-        onClick();
-      }}
-      className={`group relative overflow-hidden rounded-lg border bg-white text-left shadow-sm ${
-        isDragging ? "opacity-60" : ""
-      } ${isSelected ? "ring-2 ring-sky-400" : "border-neutral-200"}`}
-      {...attributes}
-      {...listeners}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt={title || "Untitled"}
-        className="h-28 w-full object-cover sm:h-32 md:h-36"
-        loading="lazy"
-        draggable={false}
-      />
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 py-1 text-[11px] font-semibold text-white">
-        <span className="block truncate">{title || "Untitled"}</span>
-      </div>
-    </button>
-  );
-}
-
 export default function GalleryEditor({ paintings, locations }: Props) {
   const [items, setItems] = useState(paintings);
   const [locationOptions, setLocationOptions] =
@@ -173,7 +96,6 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [activePaintingId, setActivePaintingId] = useState<string | null>(null);
-  const [dragActiveId, setDragActiveId] = useState<string | null>(null);
   const [updatingQtyId, setUpdatingQtyId] = useState<string | null>(null);
   const [activeInventoryPrintId, setActiveInventoryPrintId] = useState<
     string | null
@@ -437,36 +359,11 @@ export default function GalleryEditor({ paintings, locations }: Props) {
     [reordering],
   );
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const activeId = String(event.active.id);
-    initialOrder.current = items.map((item) => item.id);
-    setDragActiveId(activeId);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setDragActiveId(null);
-    const activeId = String(event.active.id);
-    const overId = event.over ? String(event.over.id) : null;
-    if (!overId || overId === activeId) return;
-
-    setItems((prev) => {
-      const oldIndex = prev.findIndex((p) => p.id === activeId);
-      const newIndex = prev.findIndex((p) => p.id === overId);
-      if (oldIndex < 0 || newIndex < 0) return prev;
-      const next = arrayMove(prev, oldIndex, newIndex);
-      queueMicrotask(() => {
-        void persistReorder(next.map((p) => p.id));
-      });
-      return next;
+  const handleReorder = (nextItems: Painting[], previousItems: Painting[]) => {
+    initialOrder.current = previousItems.map((item) => item.id);
+    setItems(nextItems);
+    queueMicrotask(() => {
+      void persistReorder(nextItems.map((item) => item.id));
     });
   };
 
@@ -722,6 +619,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           size: pr.size,
         })),
         is_home_image: homeId === painting.id,
+        is_home_image_second: painting.is_home_image_second ?? false,
         include_in_gallery: painting.include_in_gallery ?? true,
       });
       setMessage("Saved.");
@@ -823,6 +721,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
           size: pr.size,
         })),
         is_home_image: homeId === painting.id,
+        is_home_image_second: painting.is_home_image_second ?? false,
         include_in_gallery: painting.include_in_gallery ?? true,
       });
       setItems((prev) =>
@@ -867,7 +766,7 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const handleSelectHome = (paintingId: string) => {
     setHomeId(paintingId);
     setItems((prev) =>
-      prev.map((p) => ({ ...p, is_home_image: p.id === paintingId })),
+      prev.map((p) => ({ ...p, is_home_image: p.id === paintingId, is_home_image_second: p.id === paintingId ? false : p.is_home_image_second })),
     );
   };
 
@@ -939,7 +838,26 @@ export default function GalleryEditor({ paintings, locations }: Props) {
                 checked={homeId === painting.id}
                 onChange={() => handleSelectHome(painting.id)}
               />
-              Set as homepage image
+              Set as first homepage image
+            </label>
+            <label
+              className={`items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${isExpanded ? "flex" : "hidden"} sm:flex`}
+            >
+              <input
+                type="checkbox"
+                checked={painting.is_home_image_second ?? false}
+                disabled={homeId === painting.id}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setItems((prev) => prev.map((item) => ({
+                    ...item,
+                    is_home_image_second: item.id === painting.id
+                      ? checked
+                      : checked ? false : item.is_home_image_second,
+                  })));
+                }}
+              />
+              Set as second homepage image
             </label>
             <label
               className={`flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm ${
@@ -1277,10 +1195,6 @@ export default function GalleryEditor({ paintings, locations }: Props) {
   const selectedPainting = activePaintingId
     ? items.find((p) => p.id === activePaintingId) || null
     : null;
-  const dragOverlayPainting = dragActiveId
-    ? items.find((p) => p.id === dragActiveId) || null
-    : null;
-
   return (
     <div className="space-y-6">
       <div
@@ -1657,50 +1571,16 @@ export default function GalleryEditor({ paintings, locations }: Props) {
         {items.length === 0 ? (
           <p className="mt-3 text-sm text-neutral-600">No paintings yet.</p>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            modifiers={[snapCenterToCursor, restrictToWindowEdges]}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={() => setDragActiveId(null)}
-          >
-            <SortableContext
-              items={items.map((p) => p.id)}
-              strategy={rectSortingStrategy}
-            >
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {items.map((p) => (
-                  <SortableTile
-                    key={p.id}
-                    id={p.id}
-                    title={p.title}
-                    imageUrl={p.image_url}
-                    disabled={reordering}
-                    isSelected={activePaintingId === p.id}
-                    onClick={() => {
-                      setActivePaintingId(p.id);
-                      setExpandedPaintingId(p.id);
-                    }}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-
-            <DragOverlay>
-              {dragOverlayPainting ? (
-                <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={dragOverlayPainting.image_url}
-                    alt={dragOverlayPainting.title || "Untitled"}
-                    className="h-28 w-36 object-cover sm:h-32 sm:w-44"
-                    draggable={false}
-                  />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+          <GallerySorter
+            items={items}
+            disabled={reordering}
+            selectedId={activePaintingId}
+            onSelect={(id) => {
+              setActivePaintingId(id);
+              setExpandedPaintingId(id);
+            }}
+            onReorder={handleReorder}
+          />
         )}
       </div>
 
