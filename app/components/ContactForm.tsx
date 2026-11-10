@@ -16,7 +16,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [state, formAction, pending] = useActionState(
     sendContactMessage,
-    initialState
+    initialState,
   );
 
   useEffect(() => {
@@ -69,6 +69,19 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
           className="w-full border border-neutral-900 px-3 py-2 text-sm text-neutral-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
           // placeholder="How can we help?"
         />
+      </label>
+
+      <label className="flex items-start gap-2 text-sm text-neutral-800">
+        <input
+          name="newsletter"
+          type="checkbox"
+          defaultChecked
+          className="mt-0.5 h-4 w-4 accent-neutral-900"
+        />
+        <span>
+          I'd like to join the newsletter to receive email updates for upcoming
+          events.
+        </span>
       </label>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
