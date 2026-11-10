@@ -24,7 +24,7 @@ async function getCvEntries(): Promise<CvEntry[]> {
     ORDER BY
       CASE WHEN section = 'Collections' THEN 1 ELSE 0 END ASC,
       section ASC,
-      entry_date DESC NULLS LAST,
+      cv_entries.entry_date DESC NULLS LAST,
       title ASC;
   `;
   return rows.map((row) => ({
