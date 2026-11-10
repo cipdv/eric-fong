@@ -79,7 +79,7 @@ export default function ContactForm({ initialMessage }: ContactFormProps) {
           className="mt-0.5 h-4 w-4 accent-neutral-900"
         />
         <span>
-          I'd like to join the newsletter to receive email updates for upcoming
+          I&apos;d like to join the newsletter to receive email updates for upcoming
           events.
         </span>
       </label>
